@@ -30,6 +30,7 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "nicegui>=1.4.0",
+    "pydantic>=2.0",
 ]
 
 
@@ -94,8 +95,6 @@ select = [
 
 ignore = [
     "ANN401",  # Dynamically typed expressions (Any) are disallowed
-    "ANN101",  # Missing type annotation for self in method
-    "ANN102",  # Missing type annotation for cls in classmethod
     "S101",    # Use of assert detected
     "T201",    # Print statements (we use logging but print for CLI)
     "T203",    # pprint statements
@@ -118,6 +117,7 @@ ignore = [
 ]
 "tests/fixtures/processes.py" = [
     # subprocess calls are needed for test process management
+    "ASYNC220",
 ]
 "src/pantainos/web/**/*.py" = [
     "SIM117", # Nested with statements make sense for UI hierarchy

@@ -1,6 +1,4 @@
-"""
-Minimal test for Plugin decorator functionality - step by step implementation
-"""
+"""Tests for Plugin decorator registration"""
 
 from pantainos.plugin.base import Plugin
 
@@ -11,27 +9,23 @@ class MinimalPlugin(Plugin):
         return "minimal"
 
 
-def test_plugin_needs_page_method():
-    """Test that demonstrates Plugin needs a page method"""
+def test_plugin_page_registration():
     plugin = MinimalPlugin()
 
-    # This should fail because page method doesn't exist yet
-    try:
-        plugin.page("")
-        assert False, "Should have failed - page method doesn't exist"
-    except AttributeError as e:
-        assert "page" in str(e)
-        # Good - this is the expected failure
+    @plugin.page("/")
+    def home() -> None:
+        pass
+
+    assert "/" in plugin.pages
+    assert plugin.pages["/"]["handler"] is home
 
 
-def test_plugin_needs_api_method():
-    """Test that demonstrates Plugin needs an api method"""
+def test_plugin_api_registration():
     plugin = MinimalPlugin()
 
-    # This should fail because api method doesn't exist yet
-    try:
-        plugin.api("/test")
-        assert False, "Should have failed - api method doesn't exist"
-    except AttributeError as e:
-        assert "api" in str(e)
-        # Good - this is the expected failure
+    @plugin.api("/test")
+    def handler() -> None:
+        pass
+
+    assert "/test" in plugin.apis
+    assert plugin.apis["/test"]["handler"] is handler

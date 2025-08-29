@@ -56,8 +56,9 @@ class EventExplorer:
         self.event_source: str = "event-explorer"
         self.event_data: str = "{}"
 
-        # Event tracking will be implemented when add_event_hook is available
-        # For now, events won't be tracked to avoid SLF001 lint warning
+        # Hook into the application's event dispatch to track events
+        self._original_dispatch = self.app.event_bus._dispatch_event  # noqa: SLF001
+        self.app.event_bus._dispatch_event = self._track_and_dispatch  # noqa: SLF001
 
     async def _track_and_dispatch(self, event: Event) -> None:
         """Track event and dispatch to handlers"""

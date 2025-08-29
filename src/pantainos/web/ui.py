@@ -98,7 +98,7 @@ class DocumentationUI:
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pantainos API Documentation</title>
+    <title>Pantainos Documentation</title>
     <style>
         body {{
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -247,24 +247,24 @@ class DocumentationUI:
 </head>
 <body>
     <div class="container">
-        <h1>PANTAINOS://API_DOCUMENTATION</h1>
+        <h1>Pantainos Documentation</h1>
 
         <div class="section">
-            <h2>[EVENT_HANDLERS]</h2>
+            <h2>Event Handlers</h2>
             {handlers_html if handlers_html else '<div class="no-data">// No event handlers registered</div>'}
         </div>
 
         <div class="section">
-            <h2>[LOADED_PLUGINS]</h2>
+            <h2>Plugins</h2>
             {plugins_html}
         </div>
 
         <div class="section">
-            <h2>[SYSTEM_METRICS]</h2>
+            <h2>Application Overview</h2>
             <div class="metrics-grid">
                 <div class="metric-card">
                     <span class="metric-value">{event_count}</span>
-                    <div class="metric-label">Events</div>
+                    <div class="metric-label">Event Types</div>
                 </div>
                 <div class="metric-card">
                     <span class="metric-value">{plugin_count}</span>
@@ -272,7 +272,7 @@ class DocumentationUI:
                 </div>
                 <div class="metric-card">
                     <span class="metric-value">{web_status}</span>
-                    <div class="metric-label">Web API</div>
+                    <div class="metric-label">Web Interface</div>
                 </div>
                 <div class="metric-card">
                     <span class="metric-value">{db_status}</span>

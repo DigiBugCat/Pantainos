@@ -9,6 +9,9 @@ not configured through files.
 __version__ = "0.1.0"
 
 # New core architecture - FastAPI-like patterns
+from collections.abc import Callable
+from typing import Any
+
 from .application import Pantainos
 from .conditions import Condition
 
@@ -26,13 +29,13 @@ from .router import Router
 
 
 # Decorator function for event handlers
-def on_event(event_type: str, **kwargs):
+def on_event(event_type: str, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for registering event handlers - FastAPI-style"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # Store metadata for application to pick up
-        func._event_type = event_type
-        func._event_kwargs = kwargs
+        func._event_type = event_type  # noqa: SLF001
+        func._event_kwargs = kwargs  # noqa: SLF001
         return func
 
     return decorator

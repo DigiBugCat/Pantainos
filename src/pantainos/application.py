@@ -269,8 +269,8 @@ class Pantainos:
         self.container.register_singleton(type(plugin), plugin)
 
         # Call plugin's mount hook if it exists
-        if hasattr(plugin, "mount"):
-            plugin.mount(self)
+        if hasattr(plugin, "_mount"):
+            plugin._mount(self)  # noqa: SLF001
 
         # Mount plugin pages and APIs to web server if enabled
         if hasattr(self, "web_server") and self.web_server:

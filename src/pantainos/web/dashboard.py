@@ -68,6 +68,10 @@ class DashboardHub:
 
     def create_dashboard(self) -> None:
         """Create the main dashboard interface."""
+        # Guard against missing NiceGUI context
+        if not ui or not getattr(ui.context, "slot_stack", []):
+            return
+
         # Main container with gradient background
         with ui.element("div").classes("min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900"):
             # Top navigation bar

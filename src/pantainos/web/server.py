@@ -67,17 +67,6 @@ class WebServer:
     def _setup_documentation_route(self) -> None:
         """Setup documentation route for styled HTML interface."""
 
-        @self.fastapi.get("/ui/docs", response_class=HTMLResponse)
-        def get_documentation() -> str:
-            """Serve styled documentation page"""
-            try:
-                from .ui import DocumentationUI
-
-                doc_ui = DocumentationUI(self.app)
-                return doc_ui.create_documentation_page()
-            except RuntimeError:
-                return "<html><body><h1>Documentation unavailable</h1><p>NiceGUI not installed</p></body></html>"
-
         @self.fastapi.get("/ui/events", response_class=HTMLResponse)
         def get_event_explorer() -> str:
             """Serve Event Explorer interface"""
@@ -122,6 +111,19 @@ ui.run(port=8080)</code></pre>
                 """
             except Exception as e:
                 return f"<html><body><h1>Error</h1><p>{e!s}</p></body></html>"
+
+        @self.fastapi.get("/ui/docs")
+        def get_documentation() -> HTMLResponse:
+            """Serve styled documentation page"""
+            try:
+                from .ui import DocumentationUI
+
+                doc_ui = DocumentationUI(self.app)
+                return HTMLResponse(doc_ui.create_documentation_page())
+            except RuntimeError:
+                return HTMLResponse(
+                    "<html><body><h1>Documentation unavailable</h1><p>NiceGUI not installed</p></body></html>"
+                )
 
     def mount_plugin_pages(self, plugin: Plugin) -> None:
         """
