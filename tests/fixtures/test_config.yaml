@@ -1,0 +1,25 @@
+app:
+  hot_reload: false  # Disable internal reload for E2E tests
+
+twitch:
+  client_id: "test_client_id"
+  channel: "your_channel_name"  # Placeholder to disable Twitch for tests
+
+obs:
+  host: "localhost"
+  port: 4455
+  password: ""
+  enabled: false  # Disable OBS integration for tests
+
+elevenlabs:
+  enabled: false  # Disable ElevenLabs for tests
+
+database:
+  path: ":memory:"  # Use in-memory database for tests
+
+web:
+  port: 8888  # Will be overridden by process
+  cors_origins: ["*"]
+
+logging:
+  level: "WARNING"  # Reduce log noise in tests

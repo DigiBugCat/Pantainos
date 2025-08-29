@@ -1,0 +1,3 @@
+"""
+StarStreamer test suite
+"""

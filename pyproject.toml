@@ -1,0 +1,254 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pantainos"
+version = "0.1.0"
+description = "Minimal Python framework for event-driven applications with plugin system"
+authors = [{name = "DigiBugCat", email = "andrew@raftesalo.net"}]
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+keywords = ["framework", "library", "event-driven", "plugins", "async", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Communications :: Chat",
+    "Topic :: Multimedia :: Video",
+]
+
+dependencies = [
+    "aiosqlite>=0.19.0",
+    "aiofiles>=24.1.0",
+    "click>=8.2.1",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "nicegui>=1.4.0",
+]
+
+
+[project.urls]
+"Homepage" = "https://github.com/DigiBugCat/Pantainos"
+"Issues" = "https://github.com/DigiBugCat/Pantainos/issues"
+"Source" = "https://github.com/DigiBugCat/Pantainos"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=5.0.0",
+    "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.3.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=4.2.0",
+    "types-aiofiles>=24.1.0",
+    "types-pyyaml>=6.0.0",
+    "tdd-guard-pytest>=0.1.2",
+    "cerebras-cloud-sdk>=1.0.0",
+    "psutil>=5.9.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [".claude"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "ARG",   # flake8-unused-arguments
+    "SIM",   # flake8-simplify
+    "TCH",   # flake8-type-checking
+    "PTH",   # flake8-use-pathlib
+    "ERA",   # flake8-eradicate
+    "N",     # pep8-naming
+    "RUF",   # ruff-specific rules
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit (security)
+    "T10",   # flake8-debugger
+    "T20",   # flake8-print
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "TID",   # flake8-tidy-imports
+    "INT",   # flake8-gettext
+    "PYI",   # flake8-pyi
+]
+
+ignore = [
+    "ANN401",  # Dynamically typed expressions (Any) are disallowed
+    "ANN101",  # Missing type annotation for self in method
+    "ANN102",  # Missing type annotation for cls in classmethod
+    "S101",    # Use of assert detected
+    "T201",    # Print statements (we use logging but print for CLI)
+    "T203",    # pprint statements
+    "E501",    # Line too long (handled by formatter)
+    "F405",    # Star imports (we use controlled star imports with __all__)
+    "E731",    # Lambda assignment (sometimes cleaner in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # Assert is fine in tests
+    "ARG",    # Unused arguments in tests
+    "ANN",    # Type annotations optional in tests
+    "SLF001", # Private member access is fine in tests
+    "E731",   # Lambda assignments are fine in tests
+    "RET504", # Unnecessary assignment before return (tests are more explicit)
+    "B011",   # assert False is fine in tests
+    "F841",   # Unused variables OK in tests
+    "S603",   # subprocess calls OK in tests
+]
+"tests/fixtures/processes.py" = [
+    # subprocess calls are needed for test process management
+]
+"src/pantainos/web/**/*.py" = [
+    "SIM117", # Nested with statements make sense for UI hierarchy
+]
+"src/main.py" = [
+    "T201",   # Print statements allowed in main
+]
+"examples/**/*.py" = [
+    "ANN",    # Type annotations optional in examples
+    "ARG",    # Unused arguments OK in examples
+    "T201",   # Print statements allowed in examples
+    "E402",   # Module imports not at top (examples have conditional imports)
+    "ERA001", # Commented-out code allowed in examples
+    "SLF001", # Private member access allowed in examples
+    "SIM117", # Nested with statements allowed in examples
+]
+"actions/**/*.py" = [
+    "ANN",    # Type annotations optional in action examples
+    "ARG",    # Unused arguments OK in action handlers
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pantainos"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+exclude = [".claude"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = false
+pretty = true
+show_error_codes = true
+show_error_context = true
+show_column_numbers = true
+show_traceback = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "obswebsocket.*",
+    "twitchio.*",
+    "discord.*",
+    "speaker_bot.*",
+    "websockets.*",
+    "watchdog.*",
+    "yaml.*",
+    "colorlog.*",
+    "aiosqlite.*",
+    "fastapi.*",
+    "uvicorn.*",
+    "nicegui.*",
+    "psutil.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["pantainos"]
+skip_gitignore = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov=pantainos",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--ignore=.claude",
+]
+
+[tool.coverage.run]
+source = ["src/pantainos"]
+relative_files = true
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@abstractmethod",
+]
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+
+[tool.hatch.build.targets.sdist]
+sources = ["src"]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "psutil>=7.0.0",
+    "pytest-asyncio>=1.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.12.7",
+]
