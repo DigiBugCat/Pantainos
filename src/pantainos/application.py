@@ -7,7 +7,6 @@ type-safe event filtering, and plugin mounting capabilities.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -16,14 +15,17 @@ from .utils.logging import setup_logging
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from fastapi import FastAPI
+
     from .events import Condition
 
 from .core.di.container import ServiceContainer
 from .core.event_bus import EventBus
+from .db.initializer import DatabaseInitializer
 from .events import EventModel, GenericEvent
 from .plugin.manager import PluginRegistry
 from .scheduler import CronTask, IntervalTask, Schedule, ScheduleManager, WatchTask
-from .web.server import WebServer
+from .utils.runner import ApplicationRunner
 
 # Type variable for event models
 E = TypeVar("E", bound="EventModel")
@@ -66,17 +68,41 @@ class Pantainos:
         self.schedule_manager = ScheduleManager(self.event_bus, self.container)
         self.plugin_registry = PluginRegistry(self.container)
 
+        # Component managers
+        self.db_initializer = DatabaseInitializer(self.container)
+        self.runner = ApplicationRunner(self)
+
+        # ASGI manager - import here to avoid circular imports
+        from .core.asgi import ASGIManager
+
+        self.asgi_manager = ASGIManager(self)
+
+        # Lifecycle manager
+        from .core.lifecycle import LifecycleManager
+
+        self.lifecycle_manager = LifecycleManager(
+            self.container,
+            self.event_bus,
+            self.schedule_manager,
+            self.plugin_registry,
+            self.db_initializer,
+        )
+
         # Database will be initialized on startup
         self.database: Any | None = None
-
-        # Web server initialization
-        if kwargs.get("web_dashboard"):
-            self.web_server = WebServer(self)
 
         if debug:
             setup_logging(debug=True, app_name="pantainos")
 
         self.logger = logging.getLogger(__name__)
+
+    def __call__(self) -> FastAPI:
+        """Make Pantainos callable as ASGI app"""
+        return self.asgi_manager()
+
+    def run(self, **kwargs: Any) -> None:
+        """Run the application using uvicorn"""
+        self.runner.run(**kwargs)
 
     @property
     def plugins(self) -> dict[str, Any]:
@@ -203,88 +229,18 @@ class Pantainos:
 
     async def start(self) -> None:
         """Start the application"""
-        # Initialize a database if needed
-        if self.database_url and self.database_url != ":memory:":
-            await self._initialize_database()
-
-        # Start event bus
-        await self.event_bus.start()
-
-        # Start schedule manager
-        await self.schedule_manager.start()
-
-        # Start web server if enabled
-        if hasattr(self, "web_server") and self.web_server:
-            await self.web_server.start()
-
-        # Initialize plugins
-        await self.plugin_registry.start_all()
-
-        self.logger.info("Pantainos application started")
+        await self.lifecycle_manager.start(
+            database_url=self.database_url,
+            master_key=self.master_key,
+            emit_startup_event=True,
+        )
+        # Update database reference after initialization
+        self.database = self.db_initializer.database
 
     async def stop(self) -> None:
         """Stop the application"""
-        # Stop schedule manager
-        await self.schedule_manager.stop()
-
-        # Stop event bus
-        await self.event_bus.stop()
-
-        # Stop plugins
-        await self.plugin_registry.stop_all()
-
-        # Close database
-        if self.database and hasattr(self.database, "close"):
-            await self.database.close()
-
-        self.logger.info("Pantainos application stopped")
-
-    async def run(self) -> None:
-        """Run the application until interrupted"""
-        await self.start()
-
-        # Use asyncio.Event for clean shutdown instead of sleep loop
-        shutdown_event = asyncio.Event()
-        try:
-            await shutdown_event.wait()
-        except KeyboardInterrupt:
-            self.logger.info("Shutting down...")
-        finally:
-            await self.stop()
+        await self.lifecycle_manager.stop()
 
     async def _initialize_database(self) -> None:
-        """
-        Set up database connection and register repository services for dependency injection.
-        """
-        try:
-            from .db.database import Database
-            from .db.repositories.auth_repository import AuthRepository
-            from .db.repositories.event_repository import EventRepository
-            from .db.repositories.secure_storage_repository import SecureStorageRepository
-            from .db.repositories.user_repository import UserRepository
-            from .db.repositories.variable_repository import VariableRepository
-
-            self.database = Database(self.database_url)
-            await self.database.initialize()
-
-            # Create secure storage repository first (needed by auth repository)
-            secure_storage_repo = SecureStorageRepository(self.database, master_key=self.master_key)
-
-            # Make repositories available for injection
-            self.container.register_singleton(SecureStorageRepository, secure_storage_repo)
-            self.container.register_factory(AuthRepository, lambda: AuthRepository(secure_storage_repo))
-            # Type assertion safe here since we just created database
-            db = self.database
-            assert db is not None
-            self.container.register_factory(EventRepository, lambda: EventRepository(db))
-            self.container.register_factory(UserRepository, lambda: UserRepository(db))
-            self.container.register_factory(VariableRepository, lambda: VariableRepository(db))
-
-            self.logger.info(f"Database initialized: {self.database_url}")
-
-        except ImportError as e:
-            self.logger.warning(f"Database components not available: {e}")
-            # Allow app to run without a database
-        except Exception as e:
-            self.logger.error(f"Database initialization failed: {e}", exc_info=True)
-            raise
+        """Initialize database using DatabaseInitializer."""
+        self.database = await self.db_initializer.initialize(self.database_url, self.master_key)

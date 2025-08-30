@@ -7,6 +7,7 @@ web interface for documentation and plugin configuration.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -214,5 +215,5 @@ ui.run(port=8080)</code></pre>
         config = uvicorn.Config(app=self.fastapi, port=port, host=host, log_level="info")
         server = uvicorn.Server(config)
 
-        # Start server in async context
-        await server.serve()
+        # Start server in async context (non-blocking)
+        self._server_task = asyncio.create_task(server.serve())
