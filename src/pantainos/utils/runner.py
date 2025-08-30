@@ -43,6 +43,8 @@ class ApplicationRunner:
         if kwargs.get("reload"):
             import_string = self._get_import_string()
             if import_string:
+                # Set factory=True since Pantainos.__call__() is a factory that returns the ASGI app
+                kwargs["factory"] = True
                 uvicorn.run(import_string, **kwargs)
                 return
             # Fallback to error message if auto-detection fails

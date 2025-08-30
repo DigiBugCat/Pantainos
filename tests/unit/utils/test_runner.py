@@ -74,7 +74,7 @@ def test_run_with_reload_success(runner, mock_app):
         with patch.object(runner, "_get_import_string", return_value="test_module:app"):
             runner.run(reload=True, host="localhost")
 
-    mock_uvicorn.run.assert_called_once_with("test_module:app", reload=True, host="localhost")
+    mock_uvicorn.run.assert_called_once_with("test_module:app", reload=True, host="localhost", factory=True)
 
 
 def test_run_with_reload_no_import_string(runner):
