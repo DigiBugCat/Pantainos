@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from pantainos.events import GenericEvent
+
 
 @pytest.mark.asyncio
 async def test_application_event_handler_registration():
@@ -24,7 +26,9 @@ async def test_application_event_handler_registration():
     await app.event_bus.start()
 
     # Emit event
-    await app.emit("test.event", {"test": "data"})
+    from pantainos.events import GenericEvent
+
+    await app.emit(GenericEvent(type="test.event", data={"test": "data"}))
 
     # Give event bus time to process
     import asyncio
@@ -54,8 +58,9 @@ async def test_application_plugin_mounting():
     app.mount(mock_plugin)
 
     # Plugin should be stored
-    assert "test_plugin" in app.plugins
-    assert app.plugins["test_plugin"] == mock_plugin
+    plugins = app.plugin_registry.get_all()
+    assert "test_plugin" in plugins
+    assert plugins["test_plugin"] == mock_plugin
 
     # Plugin should be registered in container
     registered = app.container.resolve(type(mock_plugin))
@@ -101,14 +106,14 @@ async def test_application_with_conditions():
     await app.event_bus.start()
 
     # Emit event that doesn't match condition
-    await app.emit("test.event", {"value": "nomatch"})
+    await app.emit(GenericEvent(type="test.event", data={"value": "nomatch"}))
     await asyncio.sleep(0.1)
 
     # Handler should not be called
     assert len(handler_called) == 0
 
     # Emit event that matches condition
-    await app.emit("test.event", {"value": "match"})
+    await app.emit(GenericEvent(type="test.event", data={"value": "match"}))
     await asyncio.sleep(0.1)
 
     # Handler should be called
@@ -207,7 +212,7 @@ async def test_application_mixed_event_types():
     await app.event_bus.start()
 
     # Test regular event
-    await app.emit("regular.event", {})
+    await app.emit(GenericEvent(type="regular.event", data={}))
     await asyncio.sleep(0.1)
 
     # Should have called regular handler

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 from .core.di.container import ServiceContainer
 from .core.event_bus import EventBus
 from .db.initializer import DatabaseInitializer
-from .events import EventModel, GenericEvent
+from .events import EventModel
 from .plugin.manager import PluginRegistry
 from .scheduler import CronTask, IntervalTask, Schedule, ScheduleManager, WatchTask
 from .utils.runner import ApplicationRunner
@@ -103,11 +103,6 @@ class Pantainos:
     def run(self, **kwargs: Any) -> None:
         """Run the application using uvicorn"""
         self.runner.run(**kwargs)
-
-    @property
-    def plugins(self) -> dict[str, Any]:
-        """Backward compatibility property for accessing mounted plugins."""
-        return self.plugin_registry.get_all()
 
     def on(
         self, event_type: str | type[E] | Schedule, *, when: Condition[E] | None = None
@@ -197,35 +192,18 @@ class Pantainos:
         web_server = getattr(self, "web_server", None)
         self.plugin_registry.mount(plugin, name, web_server)
 
-    async def emit(
-        self, event_type_or_event: str | EventModel, data: dict[str, Any] | None = None, source: str = "system"
-    ) -> None:
+    async def emit(self, event: EventModel) -> None:
         """
         Broadcast an event to all registered handlers.
 
-        Supports both typed EventModel instances and legacy dict-based events.
-
         Args:
-            event_type_or_event: Either a typed EventModel instance or string event type
-            data: Event payload data (only used when event_type_or_event is a string)
-            source: Origin of the event (defaults to "system")
+            event: EventModel instance to emit
 
         Examples:
-            # Typed event (recommended)
             await app.emit(SystemEvent(action="startup", version="1.0.0"))
-
-            # dict-based events for generic events
-            await app.emit("user.login", {"user_id": "123"}, source="web")
+            await app.emit(GenericEvent(type="user.login", data={"user_id": "123"}))
         """
-        if isinstance(event_type_or_event, EventModel):
-            # Direct typed event emission
-            await self.event_bus.emit(event_type_or_event)
-        else:
-            # Legacy string-based emission - create GenericEvent
-            if data is None:
-                data = {}
-            event = GenericEvent(type=event_type_or_event, data=data, source=source)
-            await self.event_bus.emit(event)
+        await self.event_bus.emit(event)
 
     async def start(self) -> None:
         """Start the application"""
