@@ -8,7 +8,7 @@ event filtering.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 from pydantic import BaseModel, Field
 
 from .conditions import Condition
+
+# Type variable for event model classes
+T = TypeVar("T", bound="EventModel")
 
 
 class EventModel(BaseModel):
@@ -33,7 +36,7 @@ class EventModel(BaseModel):
     source: str = Field(default="system", description="Source that emitted this event")
 
     @classmethod
-    def condition(cls, check: Callable[[EventModel], bool], name: str = "") -> Condition[EventModel]:
+    def condition(cls, check: Callable[[Self], bool], name: str = "") -> Condition[Self]:
         """
         Create a typed condition for this event model.
 
@@ -47,32 +50,32 @@ class EventModel(BaseModel):
         Returns:
             Type-safe condition that only works with this event type
         """
-        return Condition[cls](check, name or f"{cls.__name__}_condition")
+        return Condition(check, name or f"{cls.__name__}_condition")
 
     # Common conditions that work with any event model
     @classmethod
-    def source_is(cls, source: str) -> Condition[EventModel]:
+    def source_is(cls, source: str) -> Condition[Self]:
         """Check if event came from a specific source"""
         return cls.condition(lambda event: event.source == source, f"source_is({source})")
 
     @classmethod
-    def has_field(cls, field_name: str) -> Condition[EventModel]:
+    def has_field(cls, field_name: str) -> Condition[Self]:
         """Check if event has a specific field"""
         return cls.condition(lambda event: hasattr(event, field_name), f"has_field({field_name})")
 
     @classmethod
-    def field_equals(cls, field_name: str, value: Any) -> Condition[EventModel]:
+    def field_equals(cls, field_name: str, value: Any) -> Condition[Self]:
         """Check if a field equals a specific value"""
 
-        def check(event: EventModel) -> bool:
+        def check(event: Self) -> bool:
             if not hasattr(event, field_name):
                 return False
-            return getattr(event, field_name) == value
+            return bool(getattr(event, field_name) == value)
 
         return cls.condition(check, f"field_equals({field_name}, {value})")
 
     @classmethod
-    def field_contains(cls, field_name: str, substring: str) -> Condition[EventModel]:
+    def field_contains(cls, field_name: str, substring: str) -> Condition[Self]:
         """Check if a string field contains a substring (case-insensitive)"""
 
         def check(event: EventModel) -> bool:
@@ -96,14 +99,14 @@ class GenericEvent(EventModel):
     Use this for simple events, testing, or when the schema is not known.
     """
 
-    # Event type override for routing
+    # The actual event type is stored here
     type: str = Field(description="The actual event type for routing")
 
     # Flexible data field
     data: dict[str, Any] = Field(default_factory=dict, description="Event payload")
 
     @property
-    def event_type(self) -> str:
+    def event_type(self) -> str:  # type: ignore[override]
         """Return the instance-specific event type"""
         return self.type
 

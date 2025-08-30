@@ -11,24 +11,30 @@ from collections import deque
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
+    import psutil
     from nicegui import ui
 
-    NICEGUI_AVAILABLE = True
-except ImportError:
-    NICEGUI_AVAILABLE = False
-    ui = None
-
-try:
-    import psutil
-
-    PSUTIL_AVAILABLE = True
-except ImportError:
-    PSUTIL_AVAILABLE = False
-    psutil = None
-
-if TYPE_CHECKING:
     from pantainos.application import Pantainos
+
+    NICEGUI_AVAILABLE = True
+    PSUTIL_AVAILABLE = True
+else:
+    try:
+        from nicegui import ui
+
+        NICEGUI_AVAILABLE = True
+    except ImportError:
+        NICEGUI_AVAILABLE = False
+        ui = Any  # type: ignore[assignment,misc]
+
+    try:
+        import psutil
+
+        PSUTIL_AVAILABLE = True
+    except ImportError:
+        PSUTIL_AVAILABLE = False
+        psutil = Any  # type: ignore[assignment,misc]
 
 
 class DashboardHub:
@@ -148,7 +154,10 @@ class DashboardHub:
 
     async def _emit_test_event(self) -> None:
         """Emit a test event."""
-        await self.app.event_bus.emit("test.event", {"message": "Test from dashboard"})
+        from pantainos.events.models import GenericEvent
+
+        test_event = GenericEvent(type="test.event", data={"message": "Test from dashboard"}, source="dashboard")
+        await self.app.event_bus.emit(test_event)
         if ui:
             ui.notify("Test event emitted!", type="positive")
 

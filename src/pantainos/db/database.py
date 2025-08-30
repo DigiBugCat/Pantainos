@@ -76,7 +76,7 @@ class Database:
             self._initialized = False
             logger.info("Database connection closed")
 
-    async def execute(self, query: str, parameters: tuple[Any, ...] | None = None) -> aiosqlite.Cursor:
+    async def execute(self, query: str, parameters: tuple[Any, ...] | dict[str, Any] | None = None) -> aiosqlite.Cursor:
         """Execute a query and return cursor"""
         if not self.connection:
             await self.initialize()
@@ -109,6 +109,21 @@ class Database:
         """Execute query and fetch single value from first row"""
         row = await self.fetchone(query, parameters)
         return row[0] if row else None
+
+    async def execute_query(
+        self, query: str, parameters: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[aiosqlite.Row]:
+        """Execute query and return all rows (alias for fetchall with flexible parameters)"""
+        # Convert dict parameters to tuple if needed
+        if isinstance(parameters, dict):
+            # For named parameters, pass as dict directly to execute
+            cursor = await self.execute(query, parameters)
+        else:
+            # For positional parameters or None, use fetchall
+            return await self.fetchall(query, parameters)
+
+        rows = await cursor.fetchall()
+        return list(rows)
 
     async def commit(self) -> None:
         """Commit current transaction"""

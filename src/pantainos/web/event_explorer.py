@@ -12,17 +12,23 @@ from collections import defaultdict, deque
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     from nicegui import ui
 
-    NICEGUI_AVAILABLE = True
-except ImportError:
-    NICEGUI_AVAILABLE = False
-    ui = None
-
-if TYPE_CHECKING:
     from pantainos.application import Pantainos
     from pantainos.events import EventModel
+
+    NICEGUI_AVAILABLE = True
+else:
+    try:
+        from nicegui import ui
+
+        NICEGUI_AVAILABLE = True
+    except ImportError:
+        NICEGUI_AVAILABLE = False
+        ui = Any  # type: ignore[assignment,misc]
+
+from pantainos.events.models import GenericEvent
 
 
 class EventExplorer:
@@ -61,17 +67,26 @@ class EventExplorer:
 
     async def _track_event(self, event: EventModel) -> None:
         """Track event for the explorer interface"""
+        # Get event type - use instance method for GenericEvent, class attribute for others
+        if isinstance(event, GenericEvent):
+            event_type = event.event_type  # This calls the property method
+            event_data = event.data
+        else:
+            event_type = event.event_type
+            # For non-GenericEvent, serialize the whole event as data
+            event_data = event.model_dump(exclude={"source"})
+
         # Track the event
         event_info = {
-            "type": event.type,
-            "data": event.data,
+            "type": event_type,
+            "data": event_data,
             "source": event.source,
             "timestamp": datetime.now().isoformat(),
         }
         self.recent_events.append(event_info)
 
         # Track handler executions
-        handlers = self.app.event_bus.handlers.get(event.type, [])
+        handlers = self.app.event_bus.handlers.get(event_type, [])
         for handler_info in handlers:
             self.handler_stats[handler_info["name"]] += 1
 
@@ -164,7 +179,7 @@ class EventExplorer:
         try:
             data = json.loads(self.event_data)
         except json.JSONDecodeError as e:
-            ui.notify(f"Invalid JSON: {e}", type="error")
+            ui.notify(f"Invalid JSON: {e}", type="negative")
             return
 
         from pantainos.events import GenericEvent
@@ -172,4 +187,4 @@ class EventExplorer:
         event = GenericEvent(type=self.selected_event_type, data=data, source=self.event_source)
         await self.app.event_bus.emit(event)
 
-        ui.notify(f"Event emitted: {self.selected_event_type}", type="success")
+        ui.notify(f"Event emitted: {self.selected_event_type}", type="positive")

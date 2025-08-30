@@ -12,16 +12,19 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-try:
     from nicegui import ui
 
-    NICEGUI_AVAILABLE = True
-except ImportError:
-    NICEGUI_AVAILABLE = False
-    ui = None
-
-if TYPE_CHECKING:
     from pantainos.application import Pantainos
+
+    NICEGUI_AVAILABLE = True
+else:
+    try:
+        from nicegui import ui
+
+        NICEGUI_AVAILABLE = True
+    except ImportError:
+        NICEGUI_AVAILABLE = False
+        ui = Any  # type: ignore[assignment,misc]
 
 
 class NavigationSystem:

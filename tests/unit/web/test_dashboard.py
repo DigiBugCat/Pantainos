@@ -126,7 +126,12 @@ async def test_emit_test_event(dashboard_hub, mock_app):
     await dashboard_hub._emit_test_event()
 
     # Should emit event through event bus
-    mock_app.event_bus.emit.assert_called_once_with("test.event", {"message": "Test from dashboard"})
+    mock_app.event_bus.emit.assert_called_once()
+    # Check that a GenericEvent was passed with correct properties
+    call_args = mock_app.event_bus.emit.call_args[0][0]  # First positional argument
+    assert call_args.event_type == "test.event"
+    assert call_args.data == {"message": "Test from dashboard"}
+    assert call_args.source == "dashboard"
     # ui.notify won't be called since ui is None in test environment
 
 

@@ -42,7 +42,7 @@ class ScheduleManager:
         self.event_bus = event_bus
         self.container = container
         self.running = False
-        self.scheduled_tasks: list[ScheduledTask] = []
+        self.scheduled_tasks: list[IntervalTask | CronTask | WatchTask] = []
         self.background_tasks: set[asyncio.Task[None]] = set()
 
     async def add_interval_schedule(self, handler: Callable[..., Any], interval: Interval) -> None:
@@ -124,14 +124,20 @@ class ScheduleManager:
 
         logger.info("ScheduleManager stopped")
 
-    async def _run_scheduled_task(self, task_info: ScheduledTask) -> None:
+    async def _run_scheduled_task(self, task_info: IntervalTask | CronTask | WatchTask) -> None:
         """
         Run a single scheduled task in a loop.
 
         Args:
             task_info: Task information object
         """
-        task_type = task_info.type
+        task_type = "unknown"
+        if isinstance(task_info, IntervalTask):
+            task_type = "interval"
+        elif isinstance(task_info, CronTask):
+            task_type = "cron"
+        elif isinstance(task_info, WatchTask):
+            task_type = "watch"
 
         try:
             while self.running:
@@ -163,7 +169,7 @@ class ScheduleManager:
         except asyncio.CancelledError:
             logger.debug(f"Scheduled task cancelled: {task_type}")
 
-    async def _calculate_delay(self, task_info: ScheduledTask) -> float:
+    async def _calculate_delay(self, task_info: IntervalTask | CronTask | WatchTask) -> float:
         """
         Calculate delay until next execution.
 
@@ -173,14 +179,9 @@ class ScheduleManager:
         Returns:
             Delay in seconds
         """
-        task_type = task_info.type
-        schedule = task_info.schedule
-
-        if task_type == "interval":
-            interval_task = task_info if isinstance(task_info, IntervalTask) else None
-            if not interval_task:
-                return 60.0
-            interval: Interval = schedule
+        if isinstance(task_info, IntervalTask):
+            interval_task = task_info
+            interval = task_info.schedule  # Use the typed schedule from task_info
 
             # Handle start_immediately option
             if task_info.execution_count == 0 and interval.start_immediately:
@@ -194,19 +195,15 @@ class ScheduleManager:
 
             return interval.seconds
 
-        if task_type == "cron":
-            cron_task = task_info if isinstance(task_info, CronTask) else None
-            if not cron_task:
-                return 60.0
+        if isinstance(task_info, CronTask):
+            cron_task = task_info
             # Calculate time until next cron execution
             next_time = cron_task.next_execution
             return max(0.0, next_time - time.time())
 
-        if task_type == "watch":
-            watch_task = task_info if isinstance(task_info, WatchTask) else None
-            if not watch_task:
-                return 60.0
-            watch: Watch = schedule
+        if isinstance(task_info, WatchTask):
+            watch_task = task_info
+            watch = task_info.schedule  # Use the typed schedule from task_info
 
             # Check interval for database watches
             if watch_task.last_check > 0:
@@ -228,7 +225,14 @@ class ScheduleManager:
         Returns:
             True if task should execute
         """
-        task_type = task_info.type
+        if isinstance(task_info, IntervalTask):
+            task_type = "interval"
+        elif isinstance(task_info, CronTask):
+            task_type = "cron"
+        elif isinstance(task_info, WatchTask):
+            task_type = "watch"
+        else:
+            task_type = "unknown"
 
         if task_type == "watch":
             # For watches, check if query results meet execution criteria
@@ -256,13 +260,15 @@ class ScheduleManager:
 
         try:
             # Get database from container
-            database = self.container.resolve("Database")
+            from pantainos.db.database import Database
+
+            database = self.container.resolve(Database)
             if not database:
                 logger.warning("Database not available for watch query")
                 return False
 
             # Execute the watch query
-            results = await database.execute_query(watch.query, watch.params)
+            results = await database.execute_query(watch.query, tuple(watch.params) if watch.params else None)
             current_results = [dict(row) for row in results] if results else []
 
             # Check if we should execute based on detect_changes setting
@@ -293,8 +299,6 @@ class ScheduleManager:
         Args:
             task_info: Task information object
         """
-        task_type = task_info.type
-        schedule = task_info.schedule
         task_info.execution_count += 1
 
         try:
@@ -303,13 +307,15 @@ class ScheduleManager:
             await self.event_bus.emit(event)
 
             # Update execution tracking
-            if task_type == "interval" and isinstance(task_info, IntervalTask):
+            if isinstance(task_info, IntervalTask):
                 task_info.last_execution = time.time()
-            elif task_type == "cron" and isinstance(task_info, CronTask):
+                logger.debug(f"Executed interval schedule (count: {task_info.execution_count})")
+            elif isinstance(task_info, CronTask):
                 # Calculate next cron execution time
-                task_info.next_execution = self.calculate_next_cron_time(schedule)
-
-            logger.debug(f"Executed {task_type} schedule (count: {task_info.execution_count})")
+                task_info.next_execution = self.calculate_next_cron_time(task_info.schedule)
+                logger.debug(f"Executed cron schedule (count: {task_info.execution_count})")
+            elif isinstance(task_info, WatchTask):
+                logger.debug(f"Executed watch schedule (count: {task_info.execution_count})")
 
         except Exception as e:
             logger.error(f"Error executing scheduled task: {e}")
@@ -326,13 +332,11 @@ class ScheduleManager:
         Returns:
             Typed event model instance
         """
-        schedule = task_info.schedule
-        task_type = task_info.type
         execution_time = datetime.now()
         execution_count = task_info.execution_count
 
-        if task_type == "interval":
-            interval: Interval = schedule
+        if isinstance(task_info, IntervalTask):
+            interval = task_info.schedule
             return IntervalExecutedEvent(
                 execution_time=execution_time,
                 execution_count=execution_count,
@@ -342,9 +346,9 @@ class ScheduleManager:
                 source="scheduler",
             )
 
-        if task_type == "cron":
-            cron: Cron = schedule
-            cron_task = task_info if isinstance(task_info, CronTask) else None
+        if isinstance(task_info, CronTask):
+            cron = task_info.schedule
+            cron_task = task_info
             next_execution_time = cron_task.next_execution if cron_task else time.time()
             return CronTriggeredEvent(
                 execution_time=execution_time,
@@ -355,9 +359,9 @@ class ScheduleManager:
                 source="scheduler",
             )
 
-        if task_type == "watch":
-            watch: Watch = schedule
-            watch_task = task_info if isinstance(task_info, WatchTask) else None
+        if isinstance(task_info, WatchTask):
+            watch = task_info.schedule
+            watch_task = task_info
             if not watch_task:
                 raise ValueError("Expected WatchTask for watch schedule")
 
@@ -377,7 +381,7 @@ class ScheduleManager:
                 source="scheduler",
             )
 
-        raise ValueError(f"Unknown task type: {task_type}")
+        raise ValueError(f"Unknown task type: {type(task_info).__name__}")
 
     def calculate_next_cron_time(self, cron: Cron) -> float:
         """

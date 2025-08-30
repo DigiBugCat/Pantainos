@@ -126,7 +126,7 @@ class AuthRepository:
             if not token_json:
                 return None
 
-            token_data = json.loads(token_json)
+            token_data: dict[str, Any] = json.loads(token_json)
 
             # Get metadata for expiration info
             metadata = await self.storage.get_metadata(namespace, key)

@@ -9,19 +9,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.responses import HTMLResponse
 
-    WEB_AVAILABLE = True
-except ImportError:
-    WEB_AVAILABLE = False
-    FastAPI = None
-    HTMLResponse = None
-
-if TYPE_CHECKING:
     from pantainos.application import Pantainos
     from pantainos.plugin.base import Plugin
+
+    WEB_AVAILABLE = True
+else:
+    try:
+        from fastapi import FastAPI
+        from fastapi.responses import HTMLResponse
+
+        WEB_AVAILABLE = True
+    except ImportError:
+        WEB_AVAILABLE = False
+        FastAPI = Any  # type: ignore[assignment,misc]
+        HTMLResponse = Any  # type: ignore[assignment,misc]
 
 
 class WebServer:

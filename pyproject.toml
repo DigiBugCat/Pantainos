@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pantainos"
-version = "0.2.1"
+version = "0.2.2"
 description = "Minimal Python framework for event-driven applications with plugin system"
 authors = [{name = "DigiBugCat", email = "andrew@raftesalo.net"}]
 readme = "README.md"
@@ -262,4 +262,5 @@ dev = [
     "pytest-asyncio>=1.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.12.7",
+    "types-aiofiles>=24.1.0.20250822",
 ]
