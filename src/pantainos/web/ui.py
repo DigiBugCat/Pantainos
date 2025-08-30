@@ -63,8 +63,9 @@ class DocumentationUI:
 
         # Build plugins section HTML
         plugins_html = ""
-        if hasattr(self.app, "plugins") and self.app.plugins:
-            for plugin_name, plugin in self.app.plugins.items():
+        plugins = self.app.plugin_registry.get_all()
+        if plugins:
+            for plugin_name, plugin in plugins.items():
                 plugins_html += f"""
                     <div class="plugin-card">
                         <h4>Plugin: {plugin_name}</h4>
@@ -95,7 +96,7 @@ class DocumentationUI:
         event_count = (
             len(self.app.event_bus.handlers) if hasattr(self.app, "event_bus") and self.app.event_bus.handlers else 0
         )
-        plugin_count = len(self.app.plugins) if hasattr(self.app, "plugins") else 0
+        plugin_count = len(self.app.plugin_registry.get_all())
         web_status = "Enabled" if hasattr(self.app, "web_server") else "Disabled"
         db_status = "Connected" if hasattr(self.app, "database") else "Not Connected"
 

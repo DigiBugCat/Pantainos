@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2025-08-30
+
+### 🏗️ Architecture Refactoring
+- **Modularized application.py**: Broke down 452-line monolith into focused modules (reduced to 246 lines)
+  - `src/pantainos/core/asgi.py`: ASGI lifespan and web routes (135 lines)
+  - `src/pantainos/db/initializer.py`: Database setup and repository DI (86 lines)
+  - `src/pantainos/utils/runner.py`: Uvicorn integration with reload (101 lines)
+  - `src/pantainos/core/lifecycle.py`: Component startup/shutdown (106 lines)
+
+### 🐛 Bug Fixes
+- **Fixed reload functionality**: Added `factory=True` parameter for uvicorn reload mode to prevent TypeError
+- **Fixed import string detection**: Improved auto-detection of import strings for hot reload support
+
+### ✨ Features
+- **ASGI-first design**: Proper FastAPI integration with lifespan management
+- **Hot reload support**: Smart import string detection for development workflow
+- **Separation of concerns**: Each module handles specific responsibilities
+- **Dependency injection**: Clean repository registration with DI container
+
+### 🧪 Test Coverage
+- **Added comprehensive test suites** for all new modules:
+  - `tests/unit/core/test_asgi.py`: ASGI manager tests (10 tests)
+  - `tests/unit/core/test_lifecycle.py`: Lifecycle management tests
+  - `tests/unit/db/test_initializer.py`: Database initialization tests
+  - `tests/unit/utils/test_runner.py`: Application runner tests
+- **Improved ASGI coverage**: From 54% to comprehensive coverage
+
+### 🔧 Development
+- **CI/CD workflow**: Added GitHub Actions workflow for automated testing
+- **Better error messages**: Improved uvicorn error handling and messaging
+- **Testability**: All new modules have comprehensive unit tests with proper mocking
+
+### ✅ Backward Compatibility
+- **No breaking changes**: Existing Pantainos applications continue to work without modification
+- **Maintained API**: All public interfaces remain unchanged
+
 ## [0.2.1] - 2025-08-30
 
 ### 🐛 Bug Fixes

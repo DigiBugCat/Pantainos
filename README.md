@@ -1,18 +1,18 @@
-# Pantainos
+# Pantainos 🌊
 
 **Python 3.11+** | **GNU GPLv3**
 
-Opinionated glue for event-driven systems. FastAPI-inspired patterns for connecting things that emit events.
+The batteries-included glue for event-driven systems. Think FastAPI, but for events instead of HTTP.
 
-## Philosophy
+## Philosophy 💭
 
 **Make the common case trivial, the complex case possible.**
 
-- No config files, just code
-- Everything is an event
-- Plugins are just things that emit and receive events
-- Type hints everywhere, IDE autocomplete works
-- Async-first, no sync fallbacks
+- 📝 No YAML/JSON config files - just Python code
+- 🎯 Everything is an event (seriously, everything)
+- 🔌 Plugins are just things that talk to each other via events
+- ✨ Type hints everywhere - your IDE will love you
+- ⚡ Async-first because it's 2025
 
 ## Quick Start
 

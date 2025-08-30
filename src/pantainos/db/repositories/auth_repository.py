@@ -153,7 +153,7 @@ class AuthRepository:
         expires_in: int | None = None,
     ) -> None:
         """
-        Update OAuth token with refreshed credentials.
+        Update the OAuth token with refreshed credentials.
 
         Args:
             platform: Platform name
@@ -163,7 +163,7 @@ class AuthRepository:
             expires_in: Token expiration time in seconds (optional)
 
         Raises:
-            ValueError: If required parameters are missing
+            ValueError: If required parameters are missing,
             RuntimeError: If token doesn't exist or update fails
         """
         if not platform or not account_type or not new_access_token:
@@ -179,7 +179,7 @@ class AuthRepository:
         if new_refresh_token is not None:
             existing_token["refresh_token"] = new_refresh_token
 
-        # Calculate new expiration time if provided
+        # Calculate a new expiration time if provided
         new_expires_in = expires_in
 
         # Store updated token
@@ -205,7 +205,7 @@ class AuthRepository:
             account_type: Account type
 
         Returns:
-            True if token was deleted, False if not found
+            True if the token was deleted, False if not found
         """
         if not platform or not account_type:
             return False
@@ -228,7 +228,7 @@ class AuthRepository:
             account_type: Account type
 
         Returns:
-            True if expired, False if valid, None if token not found or no expiration info
+            True if expired, False if valid, None if token is not found or no expiration info
         """
         token = await self.get_oauth_token(platform, account_type)
         if not token:
@@ -316,7 +316,7 @@ class AuthRepository:
             key_name: Key identifier
 
         Returns:
-            True if key was deleted, False if not found
+            True if the key was deleted, False if not found
         """
         if not platform or not key_name:
             return False
@@ -389,7 +389,7 @@ class AuthRepository:
 
         for namespace in all_namespaces:
             if namespace.startswith("auth_"):
-                platform = namespace[5:]  # Remove "auth_" prefix
+                platform = namespace[5:]  # Remove the "auth _" prefix
                 keys = await self.storage.list_keys(namespace)
                 auth_platforms.append({"platform": platform, "account_types": keys})
 
@@ -413,7 +413,7 @@ class AuthRepository:
             token_data: Token data dictionary
 
         Returns:
-            True if format is valid, False otherwise
+            True if a format is valid, False otherwise
         """
         required_fields = ["access_token"]
         optional_fields = ["refresh_token", "scopes", "user_id", "username", "expires_at"]
@@ -428,7 +428,7 @@ class AuthRepository:
             if field not in required_fields + optional_fields:
                 return False
 
-        # Validate scopes format - return False if scopes exists, is not None, and is not a list
+        # Validate scope format - return False if scopes exists, is not None, and is not a list
         return not (
             "scopes" in token_data and token_data["scopes"] is not None and not isinstance(token_data["scopes"], list)
         )

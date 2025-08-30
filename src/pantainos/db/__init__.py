@@ -9,12 +9,14 @@ Provides SQLite-based persistence with aiosqlite for:
 """
 
 from .database import Database
+from .initializer import DatabaseInitializer
 from .models import ChatMessage, Command, Event, PersistentVariable, SessionVariable, User
 
 __all__ = [
     "ChatMessage",
     "Command",
     "Database",
+    "DatabaseInitializer",
     "Event",
     "PersistentVariable",
     "SessionVariable",

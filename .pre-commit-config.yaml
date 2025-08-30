@@ -49,18 +49,19 @@ repos:
         args: [--check]   # CRITICAL: Check only, don't auto-format
         stages: [pre-push]
 
-  # Type checking (disabled for now due to codebase type issues)
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.8.0
-  #   hooks:
-  #     - id: mypy
-  #       name: mypy-type-check
-  #       additional_dependencies:
-  #         - pydantic>=2.5.0
-  #         - types-aiofiles
-  #         - types-pyyaml
-  #       args: [--config-file, pyproject.toml, --no-strict-optional, --ignore-missing-imports]
-  #       exclude: ^(tests/|examples/)
+  # Type checking (now enabled - all mypy issues fixed!)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.1
+    hooks:
+      - id: mypy
+        name: mypy-type-check
+        additional_dependencies:
+          - pydantic>=2.5.0
+          - types-aiofiles
+          - types-pyyaml
+        args: [--config-file, pyproject.toml, --ignore-missing-imports]
+        exclude: ^(tests/|examples/)
+        stages: [pre-push]
 
   # Import sorting (check only) - runs on push
   - repo: https://github.com/pycqa/isort
