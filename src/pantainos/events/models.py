@@ -99,7 +99,7 @@ class GenericEvent(EventModel):
     Use this for simple events, testing, or when the schema is not known.
     """
 
-    # The actual event type is stored here
+    # Event type override for routing
     type: str = Field(description="The actual event type for routing")
 
     # Flexible data field
