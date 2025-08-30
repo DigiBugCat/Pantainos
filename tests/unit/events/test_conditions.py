@@ -2,7 +2,6 @@
 Tests for conditions.py - Event filtering conditions
 """
 
-
 from pantainos.events import Condition, equals
 
 

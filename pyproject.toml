@@ -97,8 +97,6 @@ select = [
 
 ignore = [
     "ANN401",  # Dynamically typed expressions (Any) are disallowed
-    "ANN101",  # Missing type annotation for self in method
-    "ANN102",  # Missing type annotation for cls in classmethod
     "S101",    # Use of assert detected
     "T201",    # Print statements (we use logging but print for CLI)
     "T203",    # pprint statements
