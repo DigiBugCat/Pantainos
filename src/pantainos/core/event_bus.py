@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pantainos.core.di.container import ServiceContainer
-from pantainos.events import Event
+from pantainos.events import EventModel
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class EventBus:
         self.handlers: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.container = container
         self.running = False
-        self.event_queue: asyncio.Queue[Event] = asyncio.Queue()
+        self.event_queue: asyncio.Queue[EventModel] = asyncio.Queue()
         self.processing_task: asyncio.Task[None] | None = None
         self.handler_registry = HandlerRegistry()
 
@@ -43,11 +43,10 @@ class EventBus:
         self.handlers[event_type].append({"handler": handler, "condition": condition, "name": handler.__name__})
         logger.debug(f"Registered handler {handler.__name__} for event {event_type}")
 
-    async def emit(self, event_type: str, data: dict[str, Any], source: str = "system") -> None:
+    async def emit(self, event: EventModel) -> None:
         """Emit an event to all registered handlers"""
-        event = Event(type=event_type, data=data, source=source)
         await self.event_queue.put(event)
-        logger.debug(f"Event queued: {event_type} from {source}")
+        logger.debug(f"Event queued: {event.event_type} from {event.source}")
 
     async def start(self) -> None:
         """Start the event processing loop"""
@@ -80,7 +79,7 @@ class EventBus:
             except Exception as e:
                 logger.error(f"Error in event processing: {e}", exc_info=True)
 
-    async def _dispatch_event(self, event: Event) -> None:
+    async def _dispatch_event(self, event: EventModel) -> None:
         """Dispatch event to all matching handlers"""
         # Process middleware first - middleware can modify or block events
         if hasattr(self, "middleware"):
@@ -99,6 +98,9 @@ class EventBus:
                     logger.error(f"Error in middleware: {e}", exc_info=True)
                     return
 
+        # Log event to database if EventRepository is available
+        await self._log_event_to_database(event)
+
         # Call event hooks for every event
         if hasattr(self, "event_hooks"):
             for hook in self.event_hooks:
@@ -109,10 +111,10 @@ class EventBus:
                 except Exception as e:
                     logger.error(f"Error in event hook: {e}", exc_info=True)
 
-        handlers = self.handlers.get(event.type, [])
+        handlers = self.handlers.get(event.event_type, [])
 
         if not handlers:
-            logger.debug(f"No handlers for event {event.type}")
+            logger.debug(f"No handlers for event {event.event_type}")
             return
 
         # Create tasks for all handlers that pass conditions
@@ -140,7 +142,32 @@ class EventBus:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _execute_handler(self, handler: Callable[..., Awaitable[Any]], event: Event) -> None:
+    async def _log_event_to_database(self, event: EventModel) -> None:
+        """Log event to database if EventRepository is available"""
+        try:
+            # Try to get EventRepository from container
+            from pantainos.db.repositories.event_repository import EventRepository
+
+            event_repo = self.container.resolve(EventRepository)
+
+            # Extract user_id from event data if available
+            user_id = None
+            if hasattr(event, "data") and isinstance(event.data, dict):
+                user_id = event.data.get("user_id")
+
+            # Log the event
+            await event_repo.log_event(
+                event_type=event.event_type, data=event.data if hasattr(event, "data") else {}, user_id=user_id
+            )
+
+        except (ImportError, KeyError):
+            # EventRepository not available or not registered - skip logging
+            pass
+        except Exception as e:
+            # Log error but don't break event processing
+            logger.debug(f"Failed to log event to database: {e}")
+
+    async def _execute_handler(self, handler: Callable[..., Awaitable[Any]], event: EventModel) -> None:
         """Execute a handler with dependency injection"""
         try:
             # Get handler signature for dependency injection
@@ -198,7 +225,7 @@ class EventBus:
         condition = None
         if filters:
 
-            def combined_condition(event: Event) -> bool:
+            def combined_condition(event: EventModel) -> bool:
                 return all(f(event) for f in filters)
 
             condition = combined_condition
@@ -215,21 +242,21 @@ class EventBus:
         if event_type in self.handlers:
             self.handlers[event_type] = [h for h in self.handlers[event_type] if h["handler"] != handler]
 
-    def add_event_hook(self, hook: Callable[[Event], Awaitable[None]]) -> None:
+    def add_event_hook(self, hook: Callable[[EventModel], Awaitable[None]]) -> None:
         """Add a hook that will be called for every event"""
         if not hasattr(self, "event_hooks"):
-            self.event_hooks: list[Callable[[Event], Awaitable[None]]] = []
+            self.event_hooks: list[Callable[[EventModel], Awaitable[None]]] = []
         self.event_hooks.append(hook)
 
-    def remove_event_hook(self, hook: Callable[[Event], Awaitable[None]]) -> None:
+    def remove_event_hook(self, hook: Callable[[EventModel], Awaitable[None]]) -> None:
         """Remove an event hook"""
         if hasattr(self, "event_hooks") and hook in self.event_hooks:
             self.event_hooks.remove(hook)
 
-    def add_middleware(self, middleware: Callable[[Event], Awaitable[Event | None]]) -> None:
+    def add_middleware(self, middleware: Callable[[EventModel], Awaitable[EventModel | None]]) -> None:
         """Add middleware to process events"""
         if not hasattr(self, "middleware"):
-            self.middleware: list[Callable[[Event], Awaitable[Event | None]]] = []
+            self.middleware: list[Callable[[EventModel], Awaitable[EventModel | None]]] = []
         self.middleware.append(middleware)
 
     def add_error_handler(self, error_handler: Callable[[Exception, str], Awaitable[None]]) -> None:

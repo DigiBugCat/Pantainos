@@ -165,6 +165,18 @@ class GroupMember:
     added_by: str = ""
 
 
+@dataclass
+class SecureStorage:
+    """Secure storage data model for encrypted secrets"""
+
+    namespace: str = ""
+    key: str = ""
+    encrypted_value: str = ""
+    metadata: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 # SQL Schema definitions
 SCHEMA_SQL = """
 -- Users table (platform-agnostic)
@@ -293,23 +305,22 @@ BEGIN
     UPDATE groups SET updated_at = CURRENT_TIMESTAMP WHERE name = NEW.name;
 END;
 
--- Auth tokens table (OAuth tokens for broadcaster and bot accounts)
-CREATE TABLE IF NOT EXISTS auth_tokens (
-    account_type TEXT PRIMARY KEY,  -- 'broadcaster' or 'bot'
-    access_token TEXT NOT NULL,
-    refresh_token TEXT,
-    expires_at DATETIME,
-    scopes TEXT,  -- JSON array of scopes
-    user_id TEXT,  -- Twitch user ID
-    username TEXT,  -- Twitch username
+-- Secure storage table (encrypted secrets with plugin namespacing)
+CREATE TABLE IF NOT EXISTS secure_storage (
+    namespace TEXT NOT NULL,      -- Plugin namespace (e.g., "twitch", "discord", "obs")
+    key TEXT NOT NULL,            -- Secret identifier (e.g., "access_token", "api_key")
+    encrypted_value TEXT NOT NULL, -- Fernet-encrypted secret value
+    metadata JSON,                -- Optional metadata (expiry, scopes, etc.)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (namespace, key)
 );
 
--- Trigger to update updated_at on auth_tokens
-CREATE TRIGGER IF NOT EXISTS update_auth_tokens_updated_at
-    AFTER UPDATE ON auth_tokens
+-- Trigger to update updated_at on secure_storage
+CREATE TRIGGER IF NOT EXISTS update_secure_storage_updated_at
+    AFTER UPDATE ON secure_storage
 BEGIN
-    UPDATE auth_tokens SET updated_at = CURRENT_TIMESTAMP WHERE account_type = NEW.account_type;
+    UPDATE secure_storage SET updated_at = CURRENT_TIMESTAMP
+    WHERE namespace = NEW.namespace AND key = NEW.key;
 END;
 """

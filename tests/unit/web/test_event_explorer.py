@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pantainos.application import Pantainos
+from pantainos.events import GenericEvent
 
 
 @pytest.mark.asyncio
@@ -50,7 +51,8 @@ async def test_event_explorer_tracks_events():
         await app.event_bus.start()
 
         # Emit an event
-        await app.event_bus.emit("test.event", {"data": "test"}, "test-source")
+        event = GenericEvent(type="test.event", data={"data": "test"}, source="test-source")
+        await app.event_bus.emit(event)
 
         # Give event time to be processed
         await asyncio.sleep(0.1)
@@ -120,8 +122,10 @@ async def test_event_explorer_handler_statistics():
         await app.event_bus.start()
 
         # Emit events
-        await app.event_bus.emit("test.event", {}, "test")
-        await app.event_bus.emit("test.event", {}, "test")
+        event1 = GenericEvent(type="test.event", data={}, source="test")
+        event2 = GenericEvent(type="test.event", data={}, source="test")
+        await app.event_bus.emit(event1)
+        await app.event_bus.emit(event2)
 
         # Give events time to be processed
         await asyncio.sleep(0.1)
@@ -149,7 +153,8 @@ async def test_event_explorer_recent_events_limit():
 
         # Emit more events than the limit
         for i in range(60):
-            await app.event_bus.emit(f"test.event.{i}", {}, "test")
+            event = GenericEvent(type=f"test.event.{i}", data={}, source="test")
+            await app.event_bus.emit(event)
 
         # Give events time to be processed
         await asyncio.sleep(0.2)

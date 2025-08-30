@@ -14,22 +14,14 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-from .conditions import Condition
+    from .events import Condition
+
 from .core.di.container import ServiceContainer
 from .core.event_bus import EventBus
-from .core.scheduler import ScheduleManager
-from .events import Event, EventModel
-from .schedules import Schedule
+from .events import EventModel, GenericEvent
+from .plugin.manager import PluginRegistry
+from .scheduler import CronTask, IntervalTask, Schedule, ScheduleManager, WatchTask
 from .web.server import WebServer
-
-# Try to import Pydantic for type checking
-try:
-    from pydantic import BaseModel
-
-    PYDANTIC_AVAILABLE = True
-except ImportError:
-    BaseModel = type(None)  # Fallback for type checking
-    PYDANTIC_AVAILABLE = False
 
 # Type variable for event models
 E = TypeVar("E", bound="EventModel")
@@ -45,25 +37,32 @@ class Pantainos:
     and plugin mounting capabilities.
     """
 
-    def __init__(self, database_url: str = "sqlite:///pantainos.db", debug: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        database_url: str = "sqlite:///pantainos.db",
+        debug: bool = False,
+        master_key: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize Pantainos application.
 
         Args:
             database_url: Database connection URL
             debug: Enable debug logging
+            master_key: Master encryption key for secure storage (optional)
             **kwargs: Additional application parameters
         """
         self.database_url = database_url
         self.debug = debug
+        self.master_key = master_key
         self.kwargs = kwargs
 
         # Core components - no global state!
         self.container = ServiceContainer()
         self.event_bus = EventBus(self.container)
         self.schedule_manager = ScheduleManager(self.event_bus, self.container)
-        self.plugins: dict[str, Any] = {}
-        self.routers: list[Any] = []
+        self.plugin_registry = PluginRegistry(self.container)
 
         # Database will be initialized on startup
         self.database: Any | None = None
@@ -77,8 +76,13 @@ class Pantainos:
 
         self.logger = logging.getLogger(__name__)
 
+    @property
+    def plugins(self) -> dict[str, Any]:
+        """Backward compatibility property for accessing mounted plugins."""
+        return self.plugin_registry.get_all()
+
     def on(
-        self, event_type: str | type[E], *, when: Condition[E] | None = None
+        self, event_type: str | type[E] | Schedule, *, when: Condition[E] | None = None
     ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         """
         Register an event handler with optional conditions.
@@ -103,232 +107,101 @@ class Pantainos:
         """
 
         def decorator(handler: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
-            # Check if it's a Schedule instance or subclass
+            # Schedule instance - register directly
             if isinstance(event_type, Schedule):
-                # It's a Schedule instance - register with schedule manager
                 self._register_scheduled_handler(handler, event_type)
+
+            # Schedule class - create instance and register (must come before EventModel case)
             elif isinstance(event_type, type) and issubclass(event_type, Schedule):
-                # It's a Schedule class - create instance and register
                 schedule_instance = event_type()
                 self._register_scheduled_handler(handler, schedule_instance)
+
+            # EventModel class - register directly with event_type
             elif isinstance(event_type, type) and issubclass(event_type, EventModel):
-                # It's a Pydantic model - get the event_type string
                 actual_event_type = event_type.event_type
+                self.event_bus.register(actual_event_type, handler, when)
 
-                # Wrap handler to auto-parse dict data to model
-                wrapped_handler = self._wrap_with_model(handler, event_type)
-
-                # Register with condition that can work with parsed model
-                model_condition = self._adapt_condition_for_model(when, event_type) if when else None
-                self.event_bus.register(actual_event_type, wrapped_handler, model_condition)
+            # String event type - register directly
             else:
-                # String event type - register as-is
                 self.event_bus.register(str(event_type), handler, when)
 
             return handler
 
         return decorator
 
-    def _wrap_with_model(
-        self, handler: Callable[..., Awaitable[Any]], model_class: type[E]
-    ) -> Callable[..., Awaitable[Any]]:
-        """Wrap handler to auto-parse dict data to Pydantic model"""
-
-        async def wrapped(event: Event) -> Any:
-            # Parse dict data to model
-            try:
-                if PYDANTIC_AVAILABLE and hasattr(model_class, "model_validate"):
-                    # Pydantic v2
-                    parsed_event = model_class.model_validate(event.data)
-                elif PYDANTIC_AVAILABLE and hasattr(model_class, "parse_obj"):
-                    # Pydantic v1
-                    parsed_event = model_class.parse_obj(event.data)  # type: ignore
-                else:
-                    # Fallback - create instance directly
-                    parsed_event = model_class(**event.data)  # type: ignore
-
-                # Replace event with parsed model
-                new_event = Event(type=event.type, data=parsed_event, source=event.source)
-                return await handler(new_event)
-
-            except Exception as e:
-                self.logger.error(f"Failed to parse event data to {model_class.__name__}: {e}")
-                raise
-
-        return wrapped
-
-    def _adapt_condition_for_model(self, condition: Condition[E] | None, model_class: type[E]) -> Condition[Any] | None:
-        """Adapt a model-specific condition to work with Event objects"""
-        if not condition:
-            return None
-
-        def adapted_check(event: Event) -> bool:
-            # The condition expects a model instance
-            # By the time this runs, event.data should be the parsed model
-            if hasattr(event, "data") and isinstance(event.data, model_class):
-                return condition(event.data)
-            return False
-
-        return Condition(adapted_check, f"adapted_{condition.name}")
-
     def _register_scheduled_handler(self, handler: Callable[..., Awaitable[Any]], schedule: Schedule) -> None:
         """
-        Register a scheduled handler with the schedule manager.
-
-        Args:
-            handler: Handler function to execute on schedule
-            schedule: Schedule instance (Interval, Cron, Watch, etc.)
+        Register a handler to execute on a schedule (interval, cron, or watch).
         """
-        from .schedules import Cron, Interval, Watch
+        from .scheduler import Cron, Interval, Watch
 
-        # Debug: print schedule type
-        self.logger.debug(f"Registering schedule: {type(schedule)} - {schedule}")
+        self.logger.debug(f"Registering schedule: {type(schedule).__name__} - {schedule}")
 
-        # Register scheduled handler synchronously by directly adding to scheduled_tasks
-        if isinstance(schedule, Interval):
-            self.schedule_manager.scheduled_tasks.append(
-                {
-                    "handler": handler,
-                    "schedule": schedule,
-                    "type": "interval",
-                    "execution_count": 0,
-                    "last_execution": 0.0,
-                }
+        # Create a typed task based on a schedule type
+        if isinstance(schedule, Interval) or schedule.event_type == "@interval":
+            task = IntervalTask(
+                handler=handler,
+                schedule=schedule,
             )
-        elif isinstance(schedule, Cron):
-            self.schedule_manager.scheduled_tasks.append(
-                {
-                    "handler": handler,
-                    "schedule": schedule,
-                    "type": "cron",
-                    "execution_count": 0,
-                    "next_execution": self.schedule_manager.calculate_next_cron_time(schedule),
-                }
+        elif isinstance(schedule, Cron) or schedule.event_type == "@cron":
+            task = CronTask(
+                handler=handler,
+                schedule=schedule,
+                next_execution=self.schedule_manager.calculate_next_cron_time(schedule),
             )
-        elif isinstance(schedule, Watch):
-            self.schedule_manager.scheduled_tasks.append(
-                {
-                    "handler": handler,
-                    "schedule": schedule,
-                    "type": "watch",
-                    "execution_count": 0,
-                    "last_check": 0.0,
-                    "previous_results": [],
-                }
+        elif isinstance(schedule, Watch) or schedule.event_type == "@watch":
+            task = WatchTask(
+                handler=handler,
+                schedule=schedule,
             )
         else:
-            # Generic schedule - determine type from event_type
-            if schedule.event_type == "@interval":
-                self.schedule_manager.scheduled_tasks.append(
-                    {
-                        "handler": handler,
-                        "schedule": schedule,
-                        "type": "interval",
-                        "execution_count": 0,
-                        "last_execution": 0.0,
-                    }
-                )
-            elif schedule.event_type == "@cron":
-                self.schedule_manager.scheduled_tasks.append(
-                    {
-                        "handler": handler,
-                        "schedule": schedule,
-                        "type": "cron",
-                        "execution_count": 0,
-                        "next_execution": self.schedule_manager.calculate_next_cron_time(schedule),
-                    }
-                )
-            elif schedule.event_type == "@watch":
-                self.schedule_manager.scheduled_tasks.append(
-                    {
-                        "handler": handler,
-                        "schedule": schedule,
-                        "type": "watch",
-                        "execution_count": 0,
-                        "last_check": 0.0,
-                        "previous_results": [],
-                    }
-                )
+            self.logger.warning(f"Unknown schedule type: {schedule.event_type}")
+            return
 
+        self.schedule_manager.scheduled_tasks.append(task)
         self.logger.debug(f"Registered scheduled handler: {handler.__name__} for {schedule.event_type}")
 
     def mount(self, plugin: Any, name: str | None = None) -> None:
         """
-        Mount a plugin as an event source and injectable dependency.
+        Integrate a plugin into the application, making it available for dependency injection
+        and allowing it to contribute web pages/APIs.
+        """
+        web_server = getattr(self, "web_server", None)
+        self.plugin_registry.mount(plugin, name, web_server)
+
+    async def emit(
+        self, event_type_or_event: str | EventModel, data: dict[str, Any] | None = None, source: str = "system"
+    ) -> None:
+        """
+        Broadcast an event to all registered handlers.
+
+        Supports both typed EventModel instances and legacy dict-based events.
 
         Args:
-            plugin: Plugin instance to mount
-            name: Optional name override (defaults to plugin.name)
+            event_type_or_event: Either a typed EventModel instance or string event type
+            data: Event payload data (only used when event_type_or_event is a string)
+            source: Origin of the event (defaults to "system")
+
+        Examples:
+            # Typed event (recommended)
+            await app.emit(SystemEvent(action="startup", version="1.0.0"))
+
+            # dict-based events for generic events
+            await app.emit("user.login", {"user_id": "123"}, source="web")
         """
-        plugin_name = name or getattr(plugin, "name", plugin.__class__.__name__.lower())
-
-        # Store plugin
-        self.plugins[plugin_name] = plugin
-
-        # Register plugin as injectable dependency
-        self.container.register_singleton(type(plugin), plugin)
-
-        # Call plugin's mount hook if it exists
-        if hasattr(plugin, "mount"):
-            plugin.mount(self)
-
-        # Mount plugin pages and APIs to web server if enabled
-        if hasattr(self, "web_server") and self.web_server:
-            self.web_server.mount_plugin_pages(plugin)
-            self.web_server.mount_plugin_apis(plugin)
-
-        self.logger.info(f"Mounted plugin: {plugin_name}")
-
-    def include_router(self, router: Any, prefix: str = "") -> None:
-        """
-        Include a router's handlers in this application.
-
-        Args:
-            router: Router instance containing handlers
-            prefix: Additional prefix for the router's event types
-        """
-        # Store router reference
-        self.routers.append({"router": router, "prefix": prefix})
-
-        # Register all handlers from the router
-        for event_type, handlers in router.get_all_handlers().items():
-            # Apply additional prefix if provided
-            final_event_type = event_type
-            if prefix and not event_type.startswith(f"{prefix}."):
-                final_event_type = f"{prefix}.{event_type}"
-
-            # Register each handler
-            for handler_info in handlers:
-                handler = handler_info["handler"]
-                condition = handler_info["condition"]
-                original_event_type = handler_info["original_event_type"]
-
-                # Handle Pydantic models vs string events
-                if isinstance(original_event_type, type) and hasattr(original_event_type, "event_type"):
-                    # It's a Pydantic model - use the wrapped handler approach
-                    wrapped_handler = self._wrap_with_model(handler, original_event_type)
-                    model_condition = (
-                        self._adapt_condition_for_model(condition, original_event_type) if condition else None
-                    )
-                    self.event_bus.register(final_event_type, wrapped_handler, model_condition)
-                else:
-                    # String event type - register as-is
-                    self.event_bus.register(final_event_type, handler, condition)
-
-                # Register router-specific dependencies
-                for dep_type, dep_instance in handler_info.get("dependencies", {}).items():
-                    if not self.container.is_registered(dep_type):
-                        self.container.register_singleton(dep_type, dep_instance)
-
-        self.logger.info(f"Included router with {len(router.get_all_handlers())} handler groups")
-
-    async def emit(self, event_type: str, data: dict[str, Any], source: str = "system") -> None:
-        """Emit an event through the event bus"""
-        await self.event_bus.emit(event_type, data, source)
+        if isinstance(event_type_or_event, EventModel):
+            # Direct typed event emission
+            await self.event_bus.emit(event_type_or_event)
+        else:
+            # Legacy string-based emission - create GenericEvent
+            if data is None:
+                data = {}
+            event = GenericEvent(type=event_type_or_event, data=data, source=source)
+            await self.event_bus.emit(event)
 
     async def start(self) -> None:
         """Start the application"""
-        # Initialize database if needed
+        # Initialize a database if needed
         if self.database_url and self.database_url != ":memory:":
             await self._initialize_database()
 
@@ -343,13 +216,7 @@ class Pantainos:
             await self.web_server.start()
 
         # Initialize plugins
-        for plugin_name, plugin in self.plugins.items():
-            if hasattr(plugin, "start"):
-                try:
-                    await plugin.start()
-                    self.logger.debug(f"Started plugin: {plugin_name}")
-                except Exception as e:
-                    self.logger.error(f"Error starting plugin {plugin_name}: {e}")
+        await self.plugin_registry.start_all()
 
         self.logger.info("Pantainos application started")
 
@@ -362,13 +229,7 @@ class Pantainos:
         await self.event_bus.stop()
 
         # Stop plugins
-        for plugin_name, plugin in self.plugins.items():
-            if hasattr(plugin, "stop"):
-                try:
-                    await plugin.stop()
-                    self.logger.debug(f"Stopped plugin: {plugin_name}")
-                except Exception as e:
-                    self.logger.error(f"Error stopping plugin {plugin_name}: {e}")
+        await self.plugin_registry.stop_all()
 
         # Close database
         if self.database and hasattr(self.database, "close"):
@@ -390,23 +251,35 @@ class Pantainos:
             await self.stop()
 
     async def _initialize_database(self) -> None:
-        """Initialize database and repositories"""
+        """
+        Set up database connection and register repository services for dependency injection.
+        """
         try:
             from .db.database import Database
+            from .db.repositories.auth_repository import AuthRepository
             from .db.repositories.event_repository import EventRepository
+            from .db.repositories.secure_storage_repository import SecureStorageRepository
+            from .db.repositories.user_repository import UserRepository
             from .db.repositories.variable_repository import VariableRepository
 
             self.database = Database(self.database_url)
             await self.database.initialize()
 
-            # Register repositories as injectable services
+            # Create secure storage repository first (needed by auth repository)
+            secure_storage_repo = SecureStorageRepository(self.database, master_key=self.master_key)
+
+            # Make repositories available for injection
+            self.container.register_singleton(SecureStorageRepository, secure_storage_repo)
+            self.container.register_factory(AuthRepository, lambda: AuthRepository(secure_storage_repo))
             self.container.register_factory(EventRepository, lambda: EventRepository(self.database))
+            self.container.register_factory(UserRepository, lambda: UserRepository(self.database))
             self.container.register_factory(VariableRepository, lambda: VariableRepository(self.database))
 
-            self.logger.info("Database initialized")
+            self.logger.info(f"Database initialized: {self.database_url}")
 
-        except ImportError:
-            self.logger.warning("Database components not available")
+        except ImportError as e:
+            self.logger.warning(f"Database components not available: {e}")
+            # Allow app to run without a database
         except Exception as e:
-            self.logger.error(f"Failed to initialize database: {e}")
+            self.logger.error(f"Database initialization failed: {e}", exc_info=True)
             raise

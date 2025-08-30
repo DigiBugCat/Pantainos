@@ -47,7 +47,7 @@ class ServiceContainer:
             factory: A callable that returns a new service instance
 
         Example:
-            container.register_factory(Logger, lambda: logging.getLogger("starstreamer"))
+            container.register_factory(Logger, lambda: logging.getLogger("pantainos"))
         """
         self._factories[service_type] = factory
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pantainos"
-version = "0.1.0"
+version = "0.2.0"
 description = "Minimal Python framework for event-driven applications with plugin system"
 authors = [{name = "DigiBugCat", email = "andrew@raftesalo.net"}]
 readme = "README.md"
@@ -24,12 +24,15 @@ classifiers = [
 ]
 
 dependencies = [
+    "pydantic>=2.0.0",
     "aiosqlite>=0.19.0",
     "aiofiles>=24.1.0",
     "click>=8.2.1",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "nicegui>=1.4.0",
+    "keyring>=24.0.0",
+    "cryptography>=42.0.0",
 ]
 
 
@@ -107,6 +110,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "S101",   # Assert is fine in tests
+    "S105",   # Hardcoded passwords OK in tests (test data)
+    "S106",   # Hardcoded passwords in function args OK in tests
     "ARG",    # Unused arguments in tests
     "ANN",    # Type annotations optional in tests
     "SLF001", # Private member access is fine in tests
@@ -115,9 +120,14 @@ ignore = [
     "B011",   # assert False is fine in tests
     "F841",   # Unused variables OK in tests
     "S603",   # subprocess calls OK in tests
+    "SIM117", # Nested with statements are fine in tests for clarity
 ]
 "tests/fixtures/processes.py" = [
-    # subprocess calls are needed for test process management
+    "ASYNC220", # subprocess calls are needed for test process management
+]
+"src/pantainos/scheduler/*.py" = [
+    "TC003",  # Type imports needed at runtime for Pydantic validation
+    "TC001",  # Application imports needed at runtime for Pydantic validation
 ]
 "src/pantainos/web/**/*.py" = [
     "SIM117", # Nested with statements make sense for UI hierarchy

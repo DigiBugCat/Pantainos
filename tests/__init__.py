@@ -1,3 +1,3 @@
 """
-StarStreamer test suite
+Pantainos test suite
 """

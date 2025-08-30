@@ -14,9 +14,8 @@ import httpx
 import uvicorn
 from fastapi import FastAPI
 
-from pantainos.core import EventBus
 from pantainos.core.di.container import ServiceContainer
-from pantainos.core.di.registry import HandlerRegistry
+from pantainos.core.event_bus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +64,7 @@ class PantainosTestServer:
         """Create the Pantainos FastAPI application"""
         # Create minimal event bus for testing
         container = ServiceContainer()
-        registry = HandlerRegistry(container)
-        self.event_bus = EventBus(registry)
+        self.event_bus = EventBus(container)
 
         # Create FastAPI app for testing
         # Skip NiceGUI integration to avoid middleware conflicts in tests

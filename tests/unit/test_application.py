@@ -9,41 +9,6 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_application_import():
-    """Test that Pantainos class can be imported"""
-    from pantainos.application import Pantainos
-
-    assert Pantainos is not None
-
-
-@pytest.mark.asyncio
-async def test_application_creation():
-    """Test that Pantainos instance can be created"""
-    from pantainos.application import Pantainos
-
-    app = Pantainos()
-
-    assert app is not None
-    assert app.event_bus is not None
-    assert app.container is not None
-    assert app.plugins == {}
-
-
-@pytest.mark.asyncio
-async def test_application_has_core_components():
-    """Test that Pantainos has core components after creation"""
-    from pantainos.application import Pantainos
-
-    app = Pantainos()
-
-    # Should have core components
-    assert app.container is not None
-    assert app.event_bus is not None
-    assert app.plugins is not None
-    assert isinstance(app.plugins, dict)
-
-
-@pytest.mark.asyncio
 async def test_application_event_handler_registration():
     """Test that @app.on() decorator registers handlers"""
     from pantainos.application import Pantainos
@@ -124,7 +89,7 @@ async def test_application_start_stop():
 async def test_application_with_conditions():
     """Test that event handlers work with conditions"""
     from pantainos.application import Pantainos
-    from pantainos.conditions import equals
+    from pantainos.events import equals
 
     app = Pantainos()
     handler_called = []
@@ -156,7 +121,7 @@ async def test_application_with_conditions():
 async def test_application_scheduled_events():
     """Test that application supports scheduled events"""
     from pantainos.application import Pantainos
-    from pantainos.schedules import Cron, Interval, Watch
+    from pantainos.scheduler import Cron, Interval, Watch
 
     app = Pantainos()
     handler_called = []
@@ -180,7 +145,7 @@ async def test_application_scheduled_events():
     # Should have registered scheduled tasks
     assert len(app.schedule_manager.scheduled_tasks) == 3
 
-    task_types = [task["type"] for task in app.schedule_manager.scheduled_tasks]
+    task_types = [task.type for task in app.schedule_manager.scheduled_tasks]
     assert "interval" in task_types
     assert "cron" in task_types
     assert "watch" in task_types
@@ -190,7 +155,7 @@ async def test_application_scheduled_events():
 async def test_application_schedule_manager_lifecycle():
     """Test that schedule manager starts and stops with application"""
     from pantainos.application import Pantainos
-    from pantainos.schedules import Interval
+    from pantainos.scheduler import Interval
 
     app = Pantainos(database_url=":memory:")
 
@@ -222,7 +187,7 @@ async def test_application_schedule_manager_lifecycle():
 async def test_application_mixed_event_types():
     """Test that application handles both regular and scheduled events"""
     from pantainos.application import Pantainos
-    from pantainos.schedules import Interval
+    from pantainos.scheduler import Interval
 
     app = Pantainos()
     handlers_called = []

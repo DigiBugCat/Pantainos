@@ -123,7 +123,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
-        name: StarStreamer ${{ steps.version.outputs.VERSION }}
+        name: Pantainos ${{ steps.version.outputs.VERSION }}
         body_path: RELEASE_NOTES.md
         files: |
           dist/*

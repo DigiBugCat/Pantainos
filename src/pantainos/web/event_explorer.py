@@ -22,7 +22,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from pantainos.application import Pantainos
-    from pantainos.events import Event
+    from pantainos.events import EventModel
 
 
 class EventExplorer:
@@ -56,11 +56,11 @@ class EventExplorer:
         self.event_source: str = "event-explorer"
         self.event_data: str = "{}"
 
-        # Event tracking will be implemented when add_event_hook is available
-        # For now, events won't be tracked to avoid SLF001 lint warning
+        # Set up event tracking using event hooks
+        self.app.event_bus.add_event_hook(self._track_event)
 
-    async def _track_and_dispatch(self, event: Event) -> None:
-        """Track event and dispatch to handlers"""
+    async def _track_event(self, event: EventModel) -> None:
+        """Track event for the explorer interface"""
         # Track the event
         event_info = {
             "type": event.type,
@@ -74,9 +74,6 @@ class EventExplorer:
         handlers = self.app.event_bus.handlers.get(event.type, [])
         for handler_info in handlers:
             self.handler_stats[handler_info["name"]] += 1
-
-        # Call original dispatch
-        await self._original_dispatch(event)
 
     def create_interface(self) -> None:
         """Create the Event Explorer web interface"""
@@ -170,6 +167,9 @@ class EventExplorer:
             ui.notify(f"Invalid JSON: {e}", type="error")
             return
 
-        await self.app.event_bus.emit(self.selected_event_type, data, self.event_source)
+        from pantainos.events import GenericEvent
+
+        event = GenericEvent(type=self.selected_event_type, data=data, source=self.event_source)
+        await self.app.event_bus.emit(event)
 
         ui.notify(f"Event emitted: {self.selected_event_type}", type="success")

@@ -15,8 +15,8 @@ import psutil
 import pytest
 
 
-class StarStreamerProcess:
-    """Manage a StarStreamer process for testing"""
+class PantainosProcess:
+    """Manage a Pantainos process for testing"""
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class StarStreamerProcess:
         self.stderr_lines: list[str] = []
 
     async def start(self) -> None:
-        """Start the StarStreamer process"""
+        """Start the Pantainos process"""
         cmd = [
             "uv",
             "run",
@@ -216,9 +216,9 @@ class StarStreamerProcess:
 
 
 @pytest.fixture
-async def starstreamer_process() -> AsyncIterator[StarStreamerProcess]:
-    """Fixture that provides a StarStreamer process for testing"""
-    process = StarStreamerProcess()
+async def pantainos_process() -> AsyncIterator[PantainosProcess]:
+    """Fixture that provides a Pantainos process for testing"""
+    process = PantainosProcess()
     try:
         await process.start()
         yield process
@@ -227,9 +227,9 @@ async def starstreamer_process() -> AsyncIterator[StarStreamerProcess]:
 
 
 @pytest.fixture
-async def starstreamer_process_with_reload() -> AsyncIterator[StarStreamerProcess]:
-    """Fixture that provides a StarStreamer process with reload enabled"""
-    process = StarStreamerProcess(reload=True)
+async def pantainos_process_with_reload() -> AsyncIterator[PantainosProcess]:
+    """Fixture that provides a Pantainos process with reload enabled"""
+    process = PantainosProcess(reload=True)
     try:
         await process.start()
         yield process
@@ -263,7 +263,7 @@ def cleanup_processes():
     """Automatically cleanup test processes after each test"""
     yield
     # Cleanup any remaining test processes
-    kill_processes_by_name("starstreamer")
+    kill_processes_by_name("pantainos")
     kill_processes_on_port(8899)  # Default test port
 
 

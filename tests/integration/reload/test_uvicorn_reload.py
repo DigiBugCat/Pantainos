@@ -10,7 +10,7 @@ from tests.fixtures.servers import create_test_server
 
 
 class TestUvicornReload:
-    """Test uvicorn reload functionality with StarStreamer"""
+    """Test uvicorn reload functionality with Pantainos"""
 
     @pytest.mark.asyncio
     async def test_server_starts_with_reload_enabled(self):

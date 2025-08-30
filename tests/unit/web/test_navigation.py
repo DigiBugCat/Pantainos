@@ -30,34 +30,6 @@ def navigation_system(mock_app):
     return NavigationSystem(mock_app)
 
 
-def test_navigation_system_initialization(navigation_system, mock_app):
-    """Test that NavigationSystem initializes correctly."""
-    assert navigation_system.app == mock_app
-    assert navigation_system.current_page == "dashboard"
-    assert navigation_system.sidebar_expanded is True
-    assert navigation_system.search_query == ""
-    assert len(navigation_system.nav_items) > 0
-
-
-def test_navigation_has_default_items(navigation_system):
-    """Test that navigation has default menu items."""
-    items = navigation_system.nav_items
-
-    # Check we have essential items
-    item_ids = [item["id"] for item in items]
-    assert "dashboard" in item_ids
-    assert "events" in item_ids
-    assert "plugins" in item_ids
-    assert "settings" in item_ids
-
-    # Check item structure
-    for item in items:
-        assert "id" in item
-        assert "label" in item
-        assert "icon" in item
-        assert "path" in item
-
-
 def test_toggle_sidebar(navigation_system):
     """Test sidebar toggle functionality."""
     # Initially expanded

@@ -2,7 +2,7 @@
 Tests for Plugin base class (src/pantainos/plugin/base.py)
 """
 
-from pantainos.plugin.base import Plugin
+from pantainos.plugin.base import HealthCheck, Plugin
 
 
 class SimpleTestPlugin(Plugin):
@@ -11,6 +11,10 @@ class SimpleTestPlugin(Plugin):
     @property
     def name(self) -> str:
         return "test"
+
+    async def health_check(self) -> HealthCheck:
+        """Simple healthy status for testing"""
+        return HealthCheck.healthy("Test plugin is healthy")
 
 
 def test_plugin_can_be_instantiated_with_only_name():
