@@ -7,9 +7,9 @@ not configured through files.
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
-__version__ = "0.1.0"
+__version__ = "0.2.2"
 
 # New core architecture - FastAPI-like patterns
 from .application import Pantainos
@@ -27,14 +27,23 @@ from .plugin import Plugin
 from .plugin.base import HealthCheck, HealthStatus
 
 
+@runtime_checkable
+class EventHandler(Protocol):
+    """Protocol for decorated event handler functions"""
+
+    event_type: str
+    event_kwargs: dict[str, Any]
+    __call__: Callable[..., Any]
+
+
 # Decorator function for event handlers
 def on_event(event_type: str, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for registering event handlers - FastAPI-style"""
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # Store metadata for application to pick up
-        func.event_type = event_type
-        func.event_kwargs = kwargs
+        func.event_type = event_type  # type: ignore[attr-defined]
+        func.event_kwargs = kwargs  # type: ignore[attr-defined]
         return func
 
     return decorator

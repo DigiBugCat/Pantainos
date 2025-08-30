@@ -87,9 +87,9 @@ def equals(field: str, value: Any) -> Condition[Any]:
 
     def check(event: Any) -> bool:
         if hasattr(event, field):
-            return getattr(event, field) == value
+            return bool(getattr(event, field) == value)
         if hasattr(event, "data") and isinstance(event.data, dict):
-            return event.data.get(field) == value
+            return bool(event.data.get(field) == value)
         return False
 
     return Condition(check, f"equals({field}, {value})")

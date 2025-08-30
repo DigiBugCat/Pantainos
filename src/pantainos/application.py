@@ -11,6 +11,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from .utils.logging import setup_logging
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
@@ -72,7 +74,7 @@ class Pantainos:
             self.web_server = WebServer(self)
 
         if debug:
-            logging.basicConfig(level=logging.DEBUG)
+            setup_logging(debug=True, app_name="pantainos")
 
         self.logger = logging.getLogger(__name__)
 
@@ -138,18 +140,18 @@ class Pantainos:
         self.logger.debug(f"Registering schedule: {type(schedule).__name__} - {schedule}")
 
         # Create a typed task based on a schedule type
-        if isinstance(schedule, Interval) or schedule.event_type == "@interval":
-            task = IntervalTask(
+        if isinstance(schedule, Interval):
+            task: IntervalTask | CronTask | WatchTask = IntervalTask(
                 handler=handler,
                 schedule=schedule,
             )
-        elif isinstance(schedule, Cron) or schedule.event_type == "@cron":
+        elif isinstance(schedule, Cron):
             task = CronTask(
                 handler=handler,
                 schedule=schedule,
                 next_execution=self.schedule_manager.calculate_next_cron_time(schedule),
             )
-        elif isinstance(schedule, Watch) or schedule.event_type == "@watch":
+        elif isinstance(schedule, Watch):
             task = WatchTask(
                 handler=handler,
                 schedule=schedule,
@@ -271,9 +273,12 @@ class Pantainos:
             # Make repositories available for injection
             self.container.register_singleton(SecureStorageRepository, secure_storage_repo)
             self.container.register_factory(AuthRepository, lambda: AuthRepository(secure_storage_repo))
-            self.container.register_factory(EventRepository, lambda: EventRepository(self.database))
-            self.container.register_factory(UserRepository, lambda: UserRepository(self.database))
-            self.container.register_factory(VariableRepository, lambda: VariableRepository(self.database))
+            # Type assertion safe here since we just created database
+            db = self.database
+            assert db is not None
+            self.container.register_factory(EventRepository, lambda: EventRepository(db))
+            self.container.register_factory(UserRepository, lambda: UserRepository(db))
+            self.container.register_factory(VariableRepository, lambda: VariableRepository(db))
 
             self.logger.info(f"Database initialized: {self.database_url}")
 

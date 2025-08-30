@@ -15,11 +15,18 @@ def test_generic_event_creation():
 
 
 def test_generic_event_dynamic_type_setting():
-    """Test that GenericEvent sets event_type dynamically from type field"""
+    """Test that GenericEvent returns correct event_type from instance property"""
     event = GenericEvent(type="dynamic.event", data={}, source="test")
 
-    # The event_type class variable should be updated
-    assert GenericEvent.event_type == "dynamic.event"
+    # Each instance should have its own event_type from the type field
+    assert event.event_type == "dynamic.event"
+
+    # Multiple instances should have independent event_types
+    event2 = GenericEvent(type="other.event", data={}, source="test")
+    assert event2.event_type == "other.event"
+
+    # Original event should still have its own event_type
+    assert event.event_type == "dynamic.event"
 
 
 def test_system_event_creation():

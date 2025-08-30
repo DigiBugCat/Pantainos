@@ -4,15 +4,20 @@ NiceGUI web interface components for Pantainos documentation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     from nicegui import ui
 
     NICEGUI_AVAILABLE = True
-except ImportError:
-    NICEGUI_AVAILABLE = False
-    ui = None
+else:
+    try:
+        from nicegui import ui
+
+        NICEGUI_AVAILABLE = True
+    except ImportError:
+        NICEGUI_AVAILABLE = False
+        ui = Any  # type: ignore[assignment,misc]
 
 if TYPE_CHECKING:
     from pantainos.application import Pantainos

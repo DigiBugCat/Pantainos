@@ -99,7 +99,7 @@ class DocumentationGenerator:
 
         # Extract signature
         try:
-            signature = str(inspect.signature(handler))
+            signature = str(inspect.signature(handler)) if handler is not None else "Unknown signature"
         except (ValueError, TypeError):
             signature = "Unknown signature"
 

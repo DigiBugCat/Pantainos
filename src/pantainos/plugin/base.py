@@ -33,7 +33,7 @@ class HealthCheck:
     status: HealthStatus
     message: str
     timestamp: datetime
-    details: dict[str, Any] = None
+    details: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.details is None:
@@ -115,10 +115,10 @@ class Plugin(ABC):
         self.app = app
 
     @overload
-    async def emit(self, event: EventModel) -> None: ...
+    async def emit(self, event_type_or_event: EventModel, data: None = None, source: str | None = None) -> None: ...
 
     @overload
-    async def emit(self, event_type: str, data: dict[str, Any], source: str | None = None) -> None: ...
+    async def emit(self, event_type_or_event: str, data: dict[str, Any], source: str | None = None) -> None: ...
 
     async def emit(
         self, event_type_or_event: str | EventModel, data: dict[str, Any] | None = None, source: str | None = None

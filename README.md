@@ -1,225 +1,175 @@
-# Pantainos 🏛️
+# Pantainos
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+**Python 3.11+** | **GNU GPLv3**
 
-**Pantainos** is a minimal Python framework for building event-driven applications with plugin architecture. Originally designed for streaming automation, it provides a clean foundation for any application that needs event handling, dependency injection, and extensible plugins.
+Opinionated glue for event-driven systems. FastAPI-inspired patterns for connecting things that emit events.
 
-## 🎯 Philosophy
+## Philosophy
 
-- **Library First**: Import and extend, don't configure
-- **Event-Driven**: Everything communicates through events
-- **Plugin Architecture**: Extend functionality through plugins
-- **Developer Experience**: Type hints, async/await, hot reloading
+**Make the common case trivial, the complex case possible.**
 
-## 🏗️ Architecture
+- No config files, just code
+- Everything is an event
+- Plugins are just things that emit and receive events
+- Type hints everywhere, IDE autocomplete works
+- Async-first, no sync fallbacks
 
+## Quick Start
+
+```python
+from pantainos import Pantainos
+
+app = Pantainos()
+
+@app.on("user.action")
+async def handle_action(event):
+    print(f"User did: {event.data}")
+
+@app.on(Interval.every_minutes(5))
+async def periodic_task():
+    await app.emit("timer.tick", {"time": "now"})
+
+app.run()
 ```
-Plugins → Event Bus → Handlers → Database/External Services
+
+## What Actually Works
+
+### Core Application
+FastAPI-like decorators for event handling:
+```python
+app = Pantainos(database_url="sqlite:///app.db")
+
+# String events
+@app.on("message.received")
+async def handler(event): ...
+
+# Typed events with conditions
+@app.on(ChatMessage, when=ChatMessage.command("!hello"))
+async def hello_command(event: ChatMessage): ...
+
+# Scheduled events
+@app.on(Cron("0 9 * * *"))  # Daily at 9am
+async def morning_task(): ...
 ```
 
-### Key Components
+### Event Models
+Pydantic-based events with type-safe conditions:
+```python
+from pantainos.events import EventModel
 
-- **Application**: Base class for your applications
-- **Event Bus**: Central event routing with async support
-- **Service Container**: Dependency injection system
-- **Plugin System**: Extend functionality with plugins
-- **Database**: Generic SQLite with repository pattern
-- **Triggers**: Composable event filtering
+class UserEvent(EventModel):
+    event_type = "user.action"
+    username: str
+    action: str
 
-## 🚀 Quick Start
+    @classmethod
+    def is_admin(cls):
+        return cls.condition(lambda e: e.username == "admin")
+```
 
-### Installation
+### Plugins
+Self-contained modules that extend functionality:
+```python
+from pantainos import Plugin
+
+class MyPlugin(Plugin):
+    @property
+    def name(self) -> str:
+        return "my-plugin"
+
+    async def health_check(self):
+        return HealthCheck.healthy("All good")
+
+app.mount(MyPlugin())
+```
+
+### Dependency Injection
+Automatic injection into handlers:
+```python
+from pantainos.db.repositories import VariableRepository
+
+@app.on("user.login")
+async def track_login(event, vars: VariableRepository):
+    count = await vars.get("login_count", default=0)
+    await vars.set("login_count", count + 1)
+```
+
+### Scheduler
+Three types of scheduled tasks:
+```python
+# Fixed intervals
+@app.on(Interval.every_seconds(30))
+
+# Cron expressions
+@app.on(Cron("*/5 * * * *"))
+
+# File watching
+@app.on(Watch("/path/to/file"))
+```
+
+### Database
+Simple SQLite with repositories (no ORM):
+- `VariableRepository` - Key-value storage (persistent or session)
+- `EventRepository` - Event logging and history
+- `SecureStorageRepository` - Encrypted credential storage
+
+### Conditions
+Composable event filters:
+```python
+@app.on("message",
+    when=has_role("mod") & (command("!ban") | command("!kick")))
+```
+
+## Installation
 
 ```bash
 pip install pantainos
 ```
 
-### Basic Usage
+## Example: Simple Bot
 
 ```python
-from pantainos import Application, on_event, CommandTrigger, trigger
+from pantainos import Pantainos
+from pantainos.events import EventModel
 
-# Define event handlers
-@on_event("message.received")
-@trigger(CommandTrigger("!hello"))
-async def hello_command(event):
-    print(f"Hello {event.data.get('user')}!")
+class Message(EventModel):
+    event_type = "message"
+    user: str
+    text: str
 
-# Create your application
-class MyApp(Application):
-    def __init__(self):
-        super().__init__(database_url="sqlite:///myapp.db")
+    @classmethod
+    def command(cls, cmd: str):
+        return cls.condition(
+            lambda e: e.text.startswith(cmd)
+        )
 
-# Run it
-app = MyApp()
-app.run()
+app = Pantainos()
+
+@app.on(Message, when=Message.command("!hello"))
+async def hello(event: Message):
+    print(f"Hello {event.user}!")
+
+# In practice, a plugin would emit these events
+await app.emit(Message(user="alice", text="!hello world"))
 ```
 
-### With Plugins
+## Goals
 
-```python
-from pantainos import Application, BasePlugin
+Built to be the glue between services like Discord, Twitch, webhooks, and more. Each integration would be a plugin that translates platform events into Pantainos events.
 
-class MyPlugin(BasePlugin):
-    @property
-    def name(self) -> str:
-        return "my-plugin"
+## Development
 
-    @property
-    def version(self) -> str:
-        return "1.0.0"
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
 
-    async def initialize(self, app):
-        # Setup plugin
-        pass
+# Run tests
+pytest
 
-class MyApp(Application):
-    def __init__(self):
-        super().__init__()
-        self.register_plugin(MyPlugin())
-
-app = MyApp()
-app.run()
+# Format code
+black . && ruff check --fix .
 ```
 
-## 📚 Examples
+## License
 
-### Observability Application
-
-A minimal metrics collection application:
-
-```python
-from pantainos import Application, on_event
-
-@on_event("metric.received")
-async def process_metric(event):
-    print(f"Metric: {event.data}")
-
-app = Application(database_url="sqlite:///metrics.db")
-app.run()
-```
-
-See `examples/observability/` for a complete implementation.
-
-### Streaming Bot Application
-
-A comprehensive streaming automation application using multiple plugins:
-
-```python
-from pantainos import Application
-from plugins.twitch import TwitchPlugin
-from plugins.obs import OBSPlugin
-
-class StreamingBot(Application):
-    def __init__(self):
-        super().__init__(database_url="sqlite:///streamer.db")
-        self.register_plugin(TwitchPlugin(channel="my_channel"))
-        self.register_plugin(OBSPlugin(host="localhost"))
-
-bot = StreamingBot()
-bot.run()
-```
-
-See `examples/streaming_bot/` for a complete implementation.
-
-## 🧩 Core Features
-
-### Event System
-
-```python
-from pantainos import on_event
-
-@on_event("user.joined")
-async def welcome_user(event):
-    user = event.data.get("user")
-    print(f"Welcome {user}!")
-
-# Emit events
-await app.event_bus.emit("user.joined", {"user": "alice"})
-```
-
-### Triggers
-
-```python
-from pantainos import trigger, CommandTrigger, CooldownTrigger
-
-@on_event("chat.message")
-@trigger(CommandTrigger("!points"))
-@trigger(CooldownTrigger(30))  # 30 second cooldown
-async def check_points(event):
-    # Handle !points command with cooldown
-    pass
-```
-
-### Dependency Injection
-
-```python
-from pantainos.db.repositories import VariableRepository
-
-@on_event("user.action")
-async def handle_action(event, variables: VariableRepository):
-    # VariableRepository automatically injected
-    await variables.set("last_action", event.data)
-```
-
-### Database
-
-```python
-from pantainos.db.repositories import EventRepository, VariableRepository
-
-# Event logging
-await event_repo.log_event("user.login", {"user": "alice"})
-
-# Key-value storage
-await var_repo.set("counter", 42)
-value = await var_repo.get("counter", default=0)
-```
-
-## 🔌 Plugin Development
-
-Create plugins by extending `BasePlugin`:
-
-```python
-from pantainos import BasePlugin, on_event
-
-class WeatherPlugin(BasePlugin):
-    @property
-    def name(self) -> str:
-        return "weather"
-
-    @property
-    def version(self) -> str:
-        return "1.0.0"
-
-    async def initialize(self, app):
-        # Register handlers, setup resources, etc.
-        pass
-
-    async def shutdown(self):
-        # Cleanup resources
-        pass
-
-# Register with application
-app.register_plugin(WeatherPlugin())
-```
-
-## 📋 Requirements
-
-- Python 3.11+
-- aiosqlite
-- aiofiles
-- click
-
-## 🤝 Contributing
-
-Pantainos is designed to be minimal and focused. Contributions should maintain the library's simplicity while extending functionality through the plugin system.
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
----
-
-**Pantainos** - *A solid foundation for event-driven applications* 🏛️
+GNU GPLv3

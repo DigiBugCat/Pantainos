@@ -9,7 +9,7 @@ and database-reactive handlers while maintaining the clean @app.on() API.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from pydantic import Field, field_validator
 
@@ -35,10 +35,10 @@ class Schedule(EventModel):
     execution_count: int = Field(default=0, description="How many times this schedule has executed")
 
     @classmethod
-    def during_hours(cls, start_hour: int, end_hour: int) -> Condition[Schedule]:
+    def during_hours(cls, start_hour: int, end_hour: int) -> Condition[Self]:
         """Check if execution time falls within specified hours (24h format)"""
 
-        def check(event: Schedule) -> bool:
+        def check(event: Self) -> bool:
             hour = event.execution_time.hour
             if start_hour <= end_hour:
                 return start_hour <= hour < end_hour
@@ -48,19 +48,19 @@ class Schedule(EventModel):
         return cls.condition(check, f"during_hours({start_hour}-{end_hour})")
 
     @classmethod
-    def on_weekdays(cls) -> Condition[Schedule]:
+    def on_weekdays(cls) -> Condition[Self]:
         """Check if execution time falls on weekdays (Monday-Friday)"""
 
-        def check(event: Schedule) -> bool:
+        def check(event: Self) -> bool:
             return event.execution_time.weekday() < 5  # 0-4 are weekdays
 
         return cls.condition(check, "on_weekdays")
 
     @classmethod
-    def on_weekends(cls) -> Condition[Schedule]:
+    def on_weekends(cls) -> Condition[Self]:
         """Check if execution time falls on weekends (Saturday-Sunday)"""
 
-        def check(event: Schedule) -> bool:
+        def check(event: Self) -> bool:
             return event.execution_time.weekday() >= 5  # 5-6 are weekends
 
         return cls.condition(check, "on_weekends")
@@ -145,31 +145,31 @@ class Watch(Schedule):
     results_count: int = Field(default=0, description="Number of results returned")
 
     @classmethod
-    def has_results(cls) -> Condition[Watch]:
+    def has_results(cls) -> Condition[Self]:
         """Check if query returned any results"""
 
-        def check(event: Watch) -> bool:
+        def check(event: Self) -> bool:
             return len(event.results) > 0
 
         return cls.condition(check, "has_results")
 
     @classmethod
-    def min_results(cls, count: int) -> Condition[Watch]:
+    def min_results(cls, count: int) -> Condition[Self]:
         """Check if query returned at least N results"""
 
-        def check(event: Watch) -> bool:
+        def check(event: Self) -> bool:
             return len(event.results) >= count
 
         return cls.condition(check, f"min_results({count})")
 
     @classmethod
-    def result_equals(cls, field: str, value: Any) -> Condition[Watch]:
+    def result_equals(cls, field: str, value: Any) -> Condition[Self]:
         """Check if a field in the first result equals a value"""
 
-        def check(event: Watch) -> bool:
+        def check(event: Self) -> bool:
             if not event.results:
                 return False
-            return event.results[0].get(field) == value
+            return bool(event.results[0].get(field) == value)
 
         return cls.condition(check, f"result_equals({field}, {value})")
 

@@ -20,7 +20,7 @@ class HandlerRegistry:
     """Simple registry for tracking handlers by module"""
 
     def __init__(self) -> None:
-        self.handlers_by_module: dict[str, list[tuple[str, Callable]]] = {}
+        self.handlers_by_module: dict[str, list[tuple[str, Callable[..., Any]]]] = {}
 
 
 class EventBus:
@@ -71,7 +71,7 @@ class EventBus:
                 event = await asyncio.wait_for(self.event_queue.get(), timeout=1.0)
                 task = asyncio.create_task(self._dispatch_event(event))
                 # Store task reference to avoid RUF006 warning
-                self._background_tasks = getattr(self, "_background_tasks", set())
+                self._background_tasks: set[asyncio.Task[None]] = getattr(self, "_background_tasks", set())
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             except TimeoutError:
@@ -87,13 +87,14 @@ class EventBus:
                 try:
                     result = middleware(event)
                     if asyncio.iscoroutine(result):
-                        event = await result
+                        modified_event = await result
                     else:
-                        event = result
+                        modified_event = result
                     # If middleware returns None, block the event
-                    if event is None:
+                    if modified_event is None:
                         logger.debug("Event blocked by middleware")
                         return
+                    event = modified_event
                 except Exception as e:
                     logger.error(f"Error in middleware: {e}", exc_info=True)
                     return
@@ -194,7 +195,7 @@ class EventBus:
                         return
                 else:
                     # Provide None for untyped parameters to allow handler execution
-                    args.append(None)
+                    args.append(None)  # type: ignore[arg-type]
 
             # Execute handler
             result = handler(*args)
@@ -217,7 +218,7 @@ class EventBus:
         self,
         event_type: str,
         handler: Callable[..., Awaitable[Any]],
-        filters: list[Callable] | None = None,
+        filters: list[Callable[..., Any]] | None = None,
         priority: int = 100,
     ) -> None:
         """Register a handler with filters and priority (test-compatible interface)"""
