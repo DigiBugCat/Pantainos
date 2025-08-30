@@ -9,7 +9,7 @@ not configured through files.
 from collections.abc import Callable
 from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.2.1"
 
 # New core architecture - FastAPI-like patterns
 from .application import Pantainos

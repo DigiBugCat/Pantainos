@@ -4,17 +4,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pantainos"
-version = "0.2.0"
+version = "0.2.1"
 description = "Minimal Python framework for event-driven applications with plugin system"
 authors = [{name = "DigiBugCat", email = "andrew@raftesalo.net"}]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 keywords = ["framework", "library", "event-driven", "plugins", "async", "database"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -255,6 +255,9 @@ sources = ["src"]
 [dependency-groups]
 dev = [
     "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
     "psutil>=7.0.0",
     "pytest-asyncio>=1.1.0",
     "pytest-xdist>=3.8.0",

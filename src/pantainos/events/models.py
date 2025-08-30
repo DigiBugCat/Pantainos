@@ -96,19 +96,16 @@ class GenericEvent(EventModel):
     Use this for simple events, testing, or when the schema is not known.
     """
 
-    event_type: ClassVar[str] = "generic"
-
     # Event type override for routing
     type: str = Field(description="The actual event type for routing")
 
     # Flexible data field
     data: dict[str, Any] = Field(default_factory=dict, description="Event payload")
 
-    def model_post_init(self, __context: Any, /) -> None:
-        """Override event_type with the provided type"""
-        super().model_post_init(__context)
-        # Dynamically set the event type
-        self.__class__.event_type = self.type
+    @property
+    def event_type(self) -> str:
+        """Return the instance-specific event type"""
+        return self.type
 
 
 class SystemEvent(EventModel):

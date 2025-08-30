@@ -11,6 +11,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from .utils.logging import setup_logging
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
@@ -72,7 +74,7 @@ class Pantainos:
             self.web_server = WebServer(self)
 
         if debug:
-            logging.basicConfig(level=logging.DEBUG)
+            setup_logging(debug=True, app_name="pantainos")
 
         self.logger = logging.getLogger(__name__)
 
