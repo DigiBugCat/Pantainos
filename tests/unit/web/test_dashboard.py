@@ -22,7 +22,8 @@ def mock_app():
     app.event_bus = MagicMock()
     app.event_bus.handlers = {"test.event": [{"name": "handler1"}], "hello": [{"name": "handler2"}]}
     app.event_bus.emit = AsyncMock()
-    app.plugins = {"plugin1": MagicMock(), "plugin2": MagicMock()}
+    app.plugin_registry = MagicMock()
+    app.plugin_registry.get_all.return_value = {"plugin1": MagicMock(), "plugin2": MagicMock()}
     return app
 
 

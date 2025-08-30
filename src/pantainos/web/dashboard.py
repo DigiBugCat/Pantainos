@@ -112,7 +112,7 @@ class DashboardHub:
         self.active_handlers = sum(len(handlers) for handlers in self.app.event_bus.handlers.values())
 
         # Update plugin count
-        self.plugin_count = len(self.app.plugins)
+        self.plugin_count = len(self.app.plugin_registry.get_all())
 
     async def _update_system_health(self) -> None:
         """Update system health metrics."""

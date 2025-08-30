@@ -25,8 +25,9 @@ try:
     WEB_AVAILABLE = True
 except ImportError:
     WEB_AVAILABLE = False
-    FastAPI = Any
-    HTMLResponse = Any
+    # Fallback types for when FastAPI is not available
+    FastAPI = Any  # type: ignore[misc,assignment]
+    HTMLResponse = Any  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ class ASGIManager:
     def _setup_web_routes(self, fastapi_app: FastAPI) -> None:
         """Setup web routes."""
 
-        @fastapi_app.get("/ui/docs", response_class=HTMLResponse)  # type: ignore[misc]
+        @fastapi_app.get("/ui/docs", response_class=HTMLResponse)
         def get_documentation() -> str:
             """Serve styled documentation page."""
             try:
@@ -99,7 +100,7 @@ class ASGIManager:
             except RuntimeError:
                 return "<html><body><h1>Documentation unavailable</h1><p>NiceGUI not installed</p></body></html>"
 
-        @fastapi_app.get("/ui/events", response_class=HTMLResponse)  # type: ignore[misc]
+        @fastapi_app.get("/ui/events", response_class=HTMLResponse)
         def get_event_explorer() -> str:
             """Serve Event Explorer interface."""
             try:
